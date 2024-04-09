@@ -7,10 +7,17 @@ using System.Net;
 
 public enum MessageType
 {
+    CheckActivity = -3,
+    SetClientID = -2,
     HandShake = -1,
     Console = 0,
-    Position = 1
-}
+    Position = 1,
+    NewCustomerNotice = 2,
+    Disconnection = 3,
+    ThereIsNoPlace = 4,
+    RepeatMessage = 5
+};
+
 
 public interface IMessage<T>
 {
@@ -22,6 +29,17 @@ public interface IMessage<T>
 public class NetHandShake : IMessage<(long, int)>
 {
     (long, int) data;
+
+    public NetHandShake((long, int) data)
+    {
+        this.data = data;
+    }
+    public NetHandShake(byte[] data)
+    {
+        this.data = Deserialize(data);
+    }
+
+
     public (long, int) Deserialize(byte[] message)
     {
         (long, int) outData;
@@ -91,4 +109,49 @@ public class NetVector3 : IMessage<UnityEngine.Vector3>
     }
 
     //Dictionary<Client,Dictionary<msgType,int>>
+}
+
+public class NetSetClientID : IMessage<int>
+{
+
+    int data;
+
+    public NetSetClientID(int data)
+    {
+        this.data = data;
+    }
+
+    public NetSetClientID(byte[] data)
+    {
+        this.data = Deserialize(data);
+    }
+
+    public int GetData()
+    {
+        return data;
+    }
+
+    public int Deserialize(byte[] message)
+    {
+        int outData;
+
+        outData = BitConverter.ToInt32(message, 4);
+
+        return outData;
+    }
+
+    public MessageType GetMessageType()
+    {
+        return MessageType.SetClientID;
+    }
+
+    public byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(BitConverter.GetBytes(data));
+
+        return outData.ToArray();
+    }
 }

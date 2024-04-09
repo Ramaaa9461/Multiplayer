@@ -45,6 +45,13 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     int clientId = 0; // This id should be generated during first handshake
 
+    MessageChecker messageChecker;
+
+    private void Start()
+    {
+        messageChecker = MessageChecker.Instance;
+    }
+
     public void StartServer(int port)
     {
         isServer = true;
@@ -61,7 +68,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
         connection = new UdpConnection(ip, port, this);
 
-        AddClient(new IPEndPoint(ip, port));
+        NetHandShake handShakeMesage = new NetHandShake((ip.Address, port));
+        SendToServer(handShakeMesage.Serialize());
+
+        // AddClient(new IPEndPoint(ip, port));
     }
 
     void AddClient(IPEndPoint ip)
@@ -92,6 +102,36 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         AddClient(ip);
 
+        switch (messageChecker.CheckMessageType(data))
+        {
+            case MessageType.CheckActivity:
+                break;
+            case MessageType.SetClientID:
+
+
+                break;
+            case MessageType.HandShake:
+
+
+
+                break;
+            case MessageType.Console:
+                break;
+            case MessageType.Position:
+                break;
+            case MessageType.NewCustomerNotice:
+                break;
+            case MessageType.Disconnection:
+                break;
+            case MessageType.ThereIsNoPlace:
+                break;
+            case MessageType.RepeatMessage:
+                break;
+            default:
+                break;
+        }
+
+
         if (OnReceiveEvent != null)
             OnReceiveEvent.Invoke(data, ip);
     }
@@ -117,5 +157,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         // Flush the data in main thread
         if (connection != null)
             connection.FlushReceiveData();
+    }
+
+    void ConnectToServer(byte[] data, IPEndPoint ip)
+    {
+        NetHandShake handShake = new NetHandShake(data);
+
     }
 }

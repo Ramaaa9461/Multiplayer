@@ -192,10 +192,10 @@ public class NetMessage
 
     public static void Deserialize(byte[] message, out char[] outData, out int sum)
     {
-        int dataSize = (message.Length - sizeof(int)) / sizeof(char);
+        int dataSize = (message.Length - sizeof(int) * 2) / sizeof(char);
         outData = new char[dataSize];
 
-        for (int i = 0; i < dataSize; i++)
+        for (int i = 0; i < dataSize ; i++)
         {
             outData[i] = BitConverter.ToChar(message, sizeof(int) + i * sizeof(char));
         }

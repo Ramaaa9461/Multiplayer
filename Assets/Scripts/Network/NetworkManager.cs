@@ -202,13 +202,13 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
         NetMessage.Deserialize(data, out aux, out netMessageSum);
 
-        Debug.Log("Mensaje recibido (bytes): " + BitConverter.ToString(data));
 
         for (int i = 0; i < aux.Length; i++)
         {
             sum += (int)aux[i];
         }
-        sum /= 2; //Nose porque pero asi funca
+
+        Debug.Log(sum);
 
         if (sum != netMessageSum)
         {

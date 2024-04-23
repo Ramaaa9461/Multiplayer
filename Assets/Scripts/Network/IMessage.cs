@@ -5,6 +5,7 @@ using System;
 using System.Text;
 using System.Net;
 using UnityEngine.Networking.Types;
+using UnityEditor.VersionControl;
 
 public enum MessageType
 {
@@ -21,6 +22,8 @@ public enum MessageType
 
 public interface IMessage<T>
 {
+    public const int _INT = sizeof(int);
+
     public MessageType GetMessageType();
     public byte[] Serialize();
     public T Deserialize(byte[] message);
@@ -73,9 +76,7 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
         outData.AddRange(BitConverter.GetBytes(data.Item1));
         outData.AddRange(BitConverter.GetBytes(data.Item2));
 
-        int sum = 0;
-        outData.AddRange(MessageChecker.SerializeString(data.name.ToCharArray(), out sum));
-        outData.AddRange(BitConverter.GetBytes(sum));
+        outData.AddRange(MessageChecker.SerializeString(data.name.ToCharArray()));
 
         return outData.ToArray();
     }
@@ -123,12 +124,12 @@ public class NetVector3 : IMessage<UnityEngine.Vector3>
     //Dictionary<Client,Dictionary<msgType,int>>
 }
 
-public class ServerToClientHandShake : IMessage<(int clientID, string clientName)>
+public class ServerToClientHandShake : IMessage<List<(int clientID, string clientName)>>
 {
 
-    (int clientID, string clientName) data;
+    private List<(int clientID, string clientName)> data;
 
-    public ServerToClientHandShake((int clientID, string clientName) data)
+    public ServerToClientHandShake(List<(int clientID, string clientName)> data)
     {
         this.data = data;
     }
@@ -138,22 +139,34 @@ public class ServerToClientHandShake : IMessage<(int clientID, string clientName
         this.data = Deserialize(data);
     }
 
-    public (int clientID, string clientName) GetData()
+    public List<(int clientID, string clientName)> GetData()
     {
         return data;
     }
 
-    public (int clientID, string clientName) Deserialize(byte[] message)
+    public List<(int clientID, string clientName)> Deserialize(byte[] message)
     {
-        (int clientID, string clientName) outData = (0,"");
+        List<(int clientID, string clientName)> outData = new List<(int, string)>();
 
-        outData.clientID = BitConverter.ToInt32(message, 4);
+        int listCount = BitConverter.ToInt32(message, sizeof(int));
 
-        int dataSize = (message.Length - sizeof(int)) / sizeof(char);
-        outData.clientName = MessageChecker.DeserializeString(message, dataSize, sizeof(int));
+        int offSet = sizeof(int) * 2;
+        for (int i = 0; i < listCount; i++)
+        {
+            int clientID = BitConverter.ToInt32(message, offSet);
+            offSet += sizeof(int);
+            int clientNameLength = BitConverter.ToInt32(message, offSet);
+            offSet += sizeof(int);
+            string name = MessageChecker.DeserializeString(message, clientNameLength, offSet);
+            offSet += sizeof(char) * clientNameLength;
+
+            outData.Add((clientID, name));
+        }
 
         return outData;
     }
+
+
 
     public MessageType GetMessageType()
     {
@@ -165,16 +178,19 @@ public class ServerToClientHandShake : IMessage<(int clientID, string clientName
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(BitConverter.GetBytes(data.clientID));
 
-        int sum = 0;
-        outData.AddRange(MessageChecker.SerializeString(data.clientName.ToCharArray(), out sum));
-        outData.AddRange(BitConverter.GetBytes(sum));
+        outData.AddRange(BitConverter.GetBytes(data.Count));
+
+        foreach ((int clientID, string clientName) clientInfo in data)
+        {
+            outData.AddRange(BitConverter.GetBytes(clientInfo.clientID)); // ID del client
+            outData.AddRange(BitConverter.GetBytes(clientInfo.clientName.Length)); // Caracteres del nombre
+            outData.AddRange(MessageChecker.SerializeString(clientInfo.clientName.ToCharArray())); //Nombre
+        }
 
         return outData.ToArray();
     }
 }
-
 
 [Serializable]
 public class NetMessage : IMessage<char[]>
@@ -217,7 +233,7 @@ public class NetMessage : IMessage<char[]>
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
         
         int sum = 0;
-        outData.AddRange(MessageChecker.SerializeString(data,out sum));
+        outData.AddRange(MessageChecker.SerializeString(data));
 
         outData.AddRange(BitConverter.GetBytes(sum));
         

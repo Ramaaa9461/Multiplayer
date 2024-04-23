@@ -94,7 +94,14 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
             if (isServer)
             {
-                ServerToClientHandShake serverToClient = new ServerToClientHandShake((serverClientId, clientName));
+                List<(int, string)> players = new List<(int, string)>();
+
+                for (int i = 0; i < clients.Count; i++)
+                {
+                    players.Add((clients[i].id, clients[i].clientName));
+                }
+
+                ServerToClientHandShake serverToClient = new ServerToClientHandShake(players);
 
                 //Aca se deberia mandar un mensaje para avisar a los demas clientes // TENGO QUE MANDAR LA LISTA COMPLETA
                 //Que se agrego uno nuevo.

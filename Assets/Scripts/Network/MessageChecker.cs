@@ -15,15 +15,13 @@ public class MessageChecker
         return (MessageType)messageType;
     }
 
-    public static byte[] SerializeString(char[] charArray, out int sum)
+    public static byte[] SerializeString(char[] charArray)
     {
         List<byte> outData = new List<byte>();
-        sum = 0;
 
         for (int i = 0; i < charArray.Length; i++)
         {
             outData.AddRange(BitConverter.GetBytes(charArray[i]));
-            sum += (int)charArray[i];
         }
 
         return outData.ToArray();
@@ -32,21 +30,10 @@ public class MessageChecker
     public static string DeserializeString(byte[] message, int stringSize, int indexToInit)
     {
         char[] charArray = new char[stringSize];
-        int localSum = 0;
-        int messageSum = 0;
 
         for (int i = 0; i < stringSize; i++)
         {
             charArray[i] = BitConverter.ToChar(message, indexToInit * i);
-            localSum += (int)charArray[i];
-        }
-
-        messageSum = BitConverter.ToInt32(message, message.Length - sizeof(int));
-
-        if (localSum != messageSum)
-        {
-            Debug.LogError("El Paquete esta corrompido");
-            return null;
         }
 
        return new string(charArray);

@@ -4,12 +4,13 @@ using UnityEngine;
 using System;
 using System.Text;
 using System.Net;
+using UnityEngine.Networking.Types;
 
 public enum MessageType
 {
     CheckActivity = -3,
-    SetClientID = -2,
-    HandShake = -1,
+    ServerToClientHandShake = -2,
+    ClientToServerHandShake = -1,
     Console = 0,
     Position = 1,
     NewCustomerNotice = 2,
@@ -18,7 +19,6 @@ public enum MessageType
     RepeatMessage = 5
 };
 
-
 public interface IMessage<T>
 {
     public MessageType GetMessageType();
@@ -26,44 +26,56 @@ public interface IMessage<T>
     public T Deserialize(byte[] message);
 }
 
-public class NetHandShake : IMessage<(long, int)>
+public class ClientToServerNetHandShake : IMessage<(long, int, string)>
 {
-    (long, int) data;
+    (long ip, int port, string name) data;
 
-    public NetHandShake((long, int) data)
+    public ClientToServerNetHandShake((long, int, string) data)
     {
         this.data = data;
     }
-    public NetHandShake(byte[] data)
+
+    public ClientToServerNetHandShake(byte[] data)
     {
         this.data = Deserialize(data);
     }
 
-
-    public (long, int) Deserialize(byte[] message)
+    public (long, int, string) Deserialize(byte[] message)
     {
-        (long, int) outData;
+        (long, int, string) outData = (0,0,"");
 
         outData.Item1 = BitConverter.ToInt64(message, 4);
         outData.Item2 = BitConverter.ToInt32(message, 12);
+
+        int nameSize = message.Length - sizeof(long) - sizeof(int) * 2; //Le resto la ip, el puerto y la suma
+        outData.Item3 = MessageChecker.DeserializeString(message, nameSize, sizeof(long) + sizeof(int));
 
         return outData;
     }
 
     public MessageType GetMessageType()
     {
-        return MessageType.HandShake;
+        return MessageType.ClientToServerHandShake;
+    }
+
+    public (long, int, string) GetData()
+    {
+        return data;
     }
 
     public byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
+        char[] nameID = data.name.ToCharArray();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
 
         outData.AddRange(BitConverter.GetBytes(data.Item1));
         outData.AddRange(BitConverter.GetBytes(data.Item2));
 
+        int sum = 0;
+        outData.AddRange(MessageChecker.SerializeString(data.name.ToCharArray(), out sum));
+        outData.AddRange(BitConverter.GetBytes(sum));
 
         return outData.ToArray();
     }
@@ -111,38 +123,41 @@ public class NetVector3 : IMessage<UnityEngine.Vector3>
     //Dictionary<Client,Dictionary<msgType,int>>
 }
 
-public class NetSetClientID : IMessage<int>
+public class ServerToClientHandShake : IMessage<(int clientID, string clientName)>
 {
 
-    int data;
+    (int clientID, string clientName) data;
 
-    public NetSetClientID(int data)
+    public ServerToClientHandShake((int clientID, string clientName) data)
     {
         this.data = data;
     }
 
-    public NetSetClientID(byte[] data)
+    public ServerToClientHandShake(byte[] data)
     {
         this.data = Deserialize(data);
     }
 
-    public int GetData()
+    public (int clientID, string clientName) GetData()
     {
         return data;
     }
 
-    public int Deserialize(byte[] message)
+    public (int clientID, string clientName) Deserialize(byte[] message)
     {
-        int outData;
+        (int clientID, string clientName) outData = (0,"");
 
-        outData = BitConverter.ToInt32(message, 4);
+        outData.clientID = BitConverter.ToInt32(message, 4);
+
+        int dataSize = (message.Length - sizeof(int)) / sizeof(char);
+        outData.clientName = MessageChecker.DeserializeString(message, dataSize, sizeof(int));
 
         return outData;
     }
 
     public MessageType GetMessageType()
     {
-        return MessageType.SetClientID;
+        return MessageType.ServerToClientHandShake;
     }
 
     public byte[] Serialize()
@@ -150,14 +165,19 @@ public class NetSetClientID : IMessage<int>
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(BitConverter.GetBytes(data));
+        outData.AddRange(BitConverter.GetBytes(data.clientID));
+
+        int sum = 0;
+        outData.AddRange(MessageChecker.SerializeString(data.clientName.ToCharArray(), out sum));
+        outData.AddRange(BitConverter.GetBytes(sum));
 
         return outData.ToArray();
     }
 }
 
+
 [Serializable]
-public class NetMessage
+public class NetMessage : IMessage<char[]>
 {
     char[] data;
 
@@ -180,29 +200,10 @@ public class NetMessage
     {
         int dataSize = (message.Length - sizeof(int)) / sizeof(char);
 
-        char[] outData = new char[dataSize];
+        string text = MessageChecker.DeserializeString(message, dataSize, sizeof(int));
 
-        for (int i = 0; i < dataSize; i++)
-        {
-            outData[i] = BitConverter.ToChar(message, sizeof(int) + i * sizeof(char));
-        }
-
-        return outData;
+        return text.ToCharArray();
     }
-
-    public static void Deserialize(byte[] message, out char[] outData, out int sum)
-    {
-        int dataSize = (message.Length - sizeof(int) * 2) / sizeof(char);
-        outData = new char[dataSize];
-
-        for (int i = 0; i < dataSize ; i++)
-        {
-            outData[i] = BitConverter.ToChar(message, sizeof(int) + i * sizeof(char));
-        }
-
-        sum = BitConverter.ToInt32(message, message.Length - sizeof(int));
-    }
-
 
     public MessageType GetMessageType()
     {
@@ -214,19 +215,12 @@ public class NetMessage
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-
+        
         int sum = 0;
-        for (int i = 0; i < data.Length; i++)
-        {
-
-            outData.AddRange(BitConverter.GetBytes(data[i]));
-            sum += (int)data[i];
-        }
+        outData.AddRange(MessageChecker.SerializeString(data,out sum));
 
         outData.AddRange(BitConverter.GetBytes(sum));
-
-        Debug.Log(data.ToString());
-        Debug.Log(sum);
+        
         return outData.ToArray();
     }
 }

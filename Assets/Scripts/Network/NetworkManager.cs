@@ -53,14 +53,17 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
     private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
+    string userName = "";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
-    int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
+    public int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
 
     MessageChecker messageChecker;
+    PingPong checkActivity;
 
     private void Start()
     {
         messageChecker = new MessageChecker();
+        checkActivity = new PingPong();
     }
 
     public void StartServer(int port)
@@ -76,6 +79,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
         this.port = port;
         this.ipAddress = ip;
+        this.userName = name;
 
         connection = new UdpConnection(ip, port, this);
 
@@ -92,6 +96,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             ipToId[ip] = newClientID;
             clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
 
+            checkActivity.AddClientForList(newClientID);
+
             if (isServer)
             {
                 List<(int, string)> players = new List<(int, string)>();
@@ -102,9 +108,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 }
 
                 ServerToClientHandShake serverToClient = new ServerToClientHandShake(players);
-
-                //Aca se deberia mandar un mensaje para avisar a los demas clientes // TENGO QUE MANDAR LA LISTA COMPLETA
-                //Que se agrego uno nuevo.
+                Broadcast(serverToClient.Serialize());
             }
         }
         else
@@ -113,32 +117,49 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         }
     }
 
-    void RemoveClient(IPEndPoint ip)
+  public  void RemoveClient(int idToRemove)
     {
-        if (ipToId.ContainsKey(ip))
+        if (clients.ContainsKey(idToRemove))
         {
-            Debug.Log("Removing client: " + ip.Address);
-            clients.Remove(ipToId[ip]);
+            Debug.Log("Removing client: " + idToRemove);
+
+            checkActivity.RemoveClientForList(idToRemove);
+
+            ipToId.Remove(clients[idToRemove].ipEndPoint);
+            players.Remove(idToRemove);
+            clients.Remove(idToRemove);
+
+
+            //TODO: Tengo que avisar que se desconecto el player ID
         }
     }
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
-
         switch (messageChecker.CheckMessageType(data))
         {
-            case MessageType.CheckActivity:
+            case MessageType.Ping:
 
                 break;
 
             case MessageType.ServerToClientHandShake:
 
-                //Recibe la lista completa de Clientes
-
                 ServerToClientHandShake netGetClientID = new ServerToClientHandShake(data);
-               // actualClientId = netGetClientID.GetData();
-               // AddClient(ip, actualClientId);
-                Debug.Log("Me llego el nro de cliente " + actualClientId);
+
+                List<(int clientId, string userName)> playerList = netGetClientID.GetData();
+
+                players.Clear();
+                for (int i = 0; i < playerList.Count; i++)
+                {
+                    if (playerList[i].userName == userName)
+                    {
+                        actualClientId = playerList[i].clientId;
+                    }
+
+                    Player playerToAdd = new Player(playerList[i].clientId, playerList[i].userName);
+                    players.Add(playerList[i].clientId, playerToAdd);
+                }
+
                 break;
 
             case MessageType.ClientToServerHandShake:
@@ -192,6 +213,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         // Flush the data in main thread
         if (connection != null)
             connection.FlushReceiveData();
+
+        checkActivity.UpdateCheckActivity();
     }
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)

@@ -31,9 +31,10 @@ public class MessageChecker
     {
         char[] charArray = new char[stringSize];
 
-        for (int i = 0; i < stringSize; i++)
+        for (int i = 0; i < stringSize / sizeof(char); i++)
         {
-            charArray[i] = BitConverter.ToChar(message, indexToInit * i);
+            charArray[i] = BitConverter.ToChar(message, indexToInit + sizeof(char) * i);
+            Debug.Log(charArray[i]);
         }
 
        return new string(charArray);

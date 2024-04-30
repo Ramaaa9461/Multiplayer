@@ -9,7 +9,7 @@ using UnityEditor.VersionControl;
 
 public enum MessageType
 {
-    CheckActivity = -3,
+    Ping = -3,
     ServerToClientHandShake = -2,
     ClientToServerHandShake = -1,
     Console = 0,
@@ -51,7 +51,8 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
         outData.Item2 = BitConverter.ToInt32(message, 12);
 
         int nameSize = message.Length - sizeof(long) - sizeof(int) * 2; //Le resto la ip, el puerto y la suma
-        outData.Item3 = MessageChecker.DeserializeString(message, nameSize, sizeof(long) + sizeof(int));
+
+        outData.Item3 = MessageChecker.DeserializeString(message, nameSize, sizeof(long) + sizeof(int) * 2);
 
         return outData;
     }
@@ -69,7 +70,6 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
     public byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
-        char[] nameID = data.name.ToCharArray();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
 
@@ -237,6 +237,24 @@ public class NetMessage : IMessage<char[]>
 
         outData.AddRange(BitConverter.GetBytes(sum));
         
+        return outData.ToArray();
+    }
+}
+
+public class NetPing 
+{
+
+    public MessageType GetMessageType()
+    {
+        return MessageType.Ping;
+    }
+
+    public byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+
         return outData.ToArray();
     }
 }

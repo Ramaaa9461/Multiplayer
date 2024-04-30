@@ -528,7 +528,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   connectBtn: {fileID: 396509903}
   startServerBtn: {fileID: 306608487}
-  nameInputField: {fileID: 0}
+  nameInputField: {fileID: 1563290246}
   portInputField: {fileID: 1558557928}
   addressInputField: {fileID: 2123302590}
 --- !u!1 &304126657
@@ -1536,7 +1536,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 50000
+  m_Text: 51000
 --- !u!222 &1286009186
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1966,7 +1966,7 @@ MonoBehaviour:
   m_CaretColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 1}
   m_CustomCaretColor: 0
   m_SelectionColor: {r: 0.65882355, g: 0.80784315, b: 1, a: 0.7529412}
-  m_Text: 50000
+  m_Text: 51000
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0

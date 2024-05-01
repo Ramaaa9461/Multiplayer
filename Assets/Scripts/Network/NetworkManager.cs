@@ -63,7 +63,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     private void Start()
     {
         messageChecker = new MessageChecker();
-        checkActivity = new PingPong();
+      //  checkActivity = new PingPong();
     }
 
     public void StartServer(int port)
@@ -96,7 +96,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             ipToId[ip] = newClientID;
             clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
 
-            checkActivity.AddClientForList(newClientID);
+          //  checkActivity.AddClientForList(newClientID);
 
             if (isServer)
             {
@@ -123,7 +123,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         {
             Debug.Log("Removing client: " + idToRemove);
 
-            checkActivity.RemoveClientForList(idToRemove);
+          //  checkActivity.RemoveClientForList(idToRemove);
 
             ipToId.Remove(clients[idToRemove].ipEndPoint);
             players.Remove(idToRemove);
@@ -156,6 +156,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                         actualClientId = playerList[i].clientId;
                     }
 
+                    Debug.Log(playerList[i].clientId + " - " + playerList[i].userName);
                     Player playerToAdd = new Player(playerList[i].clientId, playerList[i].userName);
                     players.Add(playerList[i].clientId, playerToAdd);
                 }
@@ -214,7 +215,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         if (connection != null)
             connection.FlushReceiveData();
 
-        checkActivity.UpdateCheckActivity();
+      //  checkActivity.UpdateCheckActivity();
     }
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)

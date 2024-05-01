@@ -19,6 +19,8 @@ public class MessageChecker
     {
         List<byte> outData = new List<byte>();
 
+        outData.AddRange(BitConverter.GetBytes(charArray.Length));
+
         for (int i = 0; i < charArray.Length; i++)
         {
             outData.AddRange(BitConverter.GetBytes(charArray[i]));
@@ -27,17 +29,38 @@ public class MessageChecker
         return outData.ToArray();
     }
 
-    public static string DeserializeString(byte[] message, int stringSize, int indexToInit)
+    public static string DeserializeString(byte[] message, int indexToInit)
     {
+        int stringSize = BitConverter.ToInt32(message, indexToInit);
+
         char[] charArray = new char[stringSize];
 
-        for (int i = 0; i < stringSize / sizeof(char); i++)
+        indexToInit += sizeof(int);
+        for (int i = 0; i < stringSize; i++)
         {
             charArray[i] = BitConverter.ToChar(message, indexToInit + sizeof(char) * i);
             Debug.Log(charArray[i]);
         }
 
-       return new string(charArray);
+        return new string(charArray);
     }
-      
+
+    public static bool DeserializeCheckSum(byte[] message)
+    {
+        int messageSum = BitConverter.ToInt32(message, message.Length - sizeof(int));
+
+        messageSum >>= 5;
+
+        return messageSum == message.Length;
+    }
+
+    public static byte[] SerializeCheckSum(List<byte> data)
+    {
+        int sum = data.Count + sizeof(int);
+
+        sum <<= 5;
+        
+        return BitConverter.GetBytes(sum);
+    }
 }
+

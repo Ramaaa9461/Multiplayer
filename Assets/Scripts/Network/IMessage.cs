@@ -45,14 +45,12 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
 
     public (long, int, string) Deserialize(byte[] message)
     {
-        (long, int, string) outData = (0,0,"");
+        (long, int, string) outData = (0, 0, "");
 
         outData.Item1 = BitConverter.ToInt64(message, 4);
         outData.Item2 = BitConverter.ToInt32(message, 12);
 
-        int nameSize = message.Length - sizeof(long) - sizeof(int) * 2; //Le resto la ip, el puerto y la suma
-
-        outData.Item3 = MessageChecker.DeserializeString(message, nameSize, sizeof(long) + sizeof(int) * 2);
+        outData.Item3 = MessageChecker.DeserializeString(message, sizeof(long) + sizeof(int) * 2);
 
         return outData;
     }
@@ -156,16 +154,14 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
             int clientID = BitConverter.ToInt32(message, offSet);
             offSet += sizeof(int);
             int clientNameLength = BitConverter.ToInt32(message, offSet);
-            offSet += sizeof(int);
-            string name = MessageChecker.DeserializeString(message, clientNameLength, offSet);
-            offSet += sizeof(char) * clientNameLength;
+            string name = MessageChecker.DeserializeString(message, offSet);
+            offSet += sizeof(char) * clientNameLength + sizeof(int); 
 
             outData.Add((clientID, name));
         }
 
         return outData;
     }
-
 
 
     public MessageType GetMessageType()
@@ -184,7 +180,6 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
         foreach ((int clientID, string clientName) clientInfo in data)
         {
             outData.AddRange(BitConverter.GetBytes(clientInfo.clientID)); // ID del client
-            outData.AddRange(BitConverter.GetBytes(clientInfo.clientName.Length)); // Caracteres del nombre
             outData.AddRange(MessageChecker.SerializeString(clientInfo.clientName.ToCharArray())); //Nombre
         }
 
@@ -214,9 +209,9 @@ public class NetMessage : IMessage<char[]>
 
     public char[] Deserialize(byte[] message)
     {
-        int dataSize = (message.Length - sizeof(int)) / sizeof(char);
+        string text = MessageChecker.DeserializeString(message, sizeof(int));
 
-        string text = MessageChecker.DeserializeString(message, dataSize, sizeof(int));
+        Debug.Log(MessageChecker.DeserializeCheckSum(message));
 
         return text.ToCharArray();
     }
@@ -231,17 +226,16 @@ public class NetMessage : IMessage<char[]>
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        
-        int sum = 0;
+
         outData.AddRange(MessageChecker.SerializeString(data));
 
-        outData.AddRange(BitConverter.GetBytes(sum));
-        
+        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
+
         return outData.ToArray();
     }
 }
 
-public class NetPing 
+public class NetPing
 {
 
     public MessageType GetMessageType()

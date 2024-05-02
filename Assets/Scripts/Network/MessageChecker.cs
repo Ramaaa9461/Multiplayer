@@ -2,8 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
-public class MessageChecker 
+public class MessageChecker
 {
     public MessageType CheckMessageType(byte[] message)
     {
@@ -14,12 +15,52 @@ public class MessageChecker
         return (MessageType)messageType;
     }
 
-    public int CheckClientId(byte[] message)
+    public static byte[] SerializeString(char[] charArray)
     {
-        int clientId = 0;
+        List<byte> outData = new List<byte>();
 
-        clientId = BitConverter.ToInt32(message, 4);
+        outData.AddRange(BitConverter.GetBytes(charArray.Length));
 
-        return clientId;
+        for (int i = 0; i < charArray.Length; i++)
+        {
+            outData.AddRange(BitConverter.GetBytes(charArray[i]));
+        }
+
+        return outData.ToArray();
+    }
+
+    public static string DeserializeString(byte[] message, int indexToInit)
+    {
+        int stringSize = BitConverter.ToInt32(message, indexToInit);
+
+        char[] charArray = new char[stringSize];
+
+        indexToInit += sizeof(int);
+        for (int i = 0; i < stringSize; i++)
+        {
+            charArray[i] = BitConverter.ToChar(message, indexToInit + sizeof(char) * i);
+            Debug.Log(charArray[i]);
+        }
+
+        return new string(charArray);
+    }
+
+    public static bool DeserializeCheckSum(byte[] message)
+    {
+        int messageSum = BitConverter.ToInt32(message, message.Length - sizeof(int));
+
+        messageSum >>= 5;
+
+        return messageSum == message.Length;
+    }
+
+    public static byte[] SerializeCheckSum(List<byte> data)
+    {
+        int sum = data.Count + sizeof(int);
+
+        sum <<= 5;
+        
+        return BitConverter.GetBytes(sum);
     }
 }
+

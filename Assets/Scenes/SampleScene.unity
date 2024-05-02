@@ -528,6 +528,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   connectBtn: {fileID: 396509903}
   startServerBtn: {fileID: 306608487}
+  nameInputField: {fileID: 1563290246}
   portInputField: {fileID: 1558557928}
   addressInputField: {fileID: 2123302590}
 --- !u!1 &304126657

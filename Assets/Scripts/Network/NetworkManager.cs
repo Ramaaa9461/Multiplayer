@@ -8,12 +8,26 @@ public struct Client
     public float timeStamp;
     public int id;
     public IPEndPoint ipEndPoint;
+    public string clientName;
 
-    public Client(IPEndPoint ipEndPoint, int id, float timeStamp)
+    public Client(IPEndPoint ipEndPoint, int id, float timeStamp, string clientName)
     {
         this.timeStamp = timeStamp;
         this.id = id;
         this.ipEndPoint = ipEndPoint;
+        this.clientName = clientName;
+    }
+}
+
+public struct Player
+{
+    public int id;
+    public string name;
+
+    public Player(int id, string name)
+    {
+        this.id = id;
+        this.name = name;
     }
 }
 
@@ -23,30 +37,28 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         get; private set;
     }
-
     public int port
     {
         get; private set;
     }
-
     public bool isServer
     {
         get; private set;
     }
-
     public int TimeOut = 30;
-
-    public Action<byte[], IPEndPoint> OnReceiveEvent;
 
     private UdpConnection connection;
 
-    private readonly Dictionary<int, Client> clients = new Dictionary<int, Client>();
+    private readonly Dictionary<int, Client> clients = new Dictionary<int, Client>(); //Esta lista la tiene el SERVER
+    private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
     private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
+    string userName = "";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
-    int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
+    public int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
 
     MessageChecker messageChecker;
+    PingPong checkActivity;
 
     private void Start()
     {
@@ -58,35 +70,47 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         isServer = true;
         this.port = port;
         connection = new UdpConnection(port, this);
+
+        checkActivity = new PingPong();
     }
 
-    public void StartClient(IPAddress ip, int port)
+    public void StartClient(IPAddress ip, int port, string name)
     {
         isServer = false;
 
         this.port = port;
         this.ipAddress = ip;
+        this.userName = name;
 
         connection = new UdpConnection(ip, port, this);
+        checkActivity = new PingPong();
 
-        NetHandShake handShakeMesage = new NetHandShake((UdpConnection.IPToLong(ip), port));
+        ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake((UdpConnection.IPToLong(ip), port, name));
         SendToServer(handShakeMesage.Serialize());
     }
 
-
-    public void AddClient(IPEndPoint ip, int newClientID)
+    public void AddClient(IPEndPoint ip, int newClientID, string clientName)
     {
         if (!ipToId.ContainsKey(ip) && !clients.ContainsKey(newClientID)) //Nose si hace falta los 2
         {
             Debug.Log("Adding client: " + ip.Address);
 
             ipToId[ip] = newClientID;
-            clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup));
+            clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
+
+            checkActivity.AddClientForList(newClientID);
 
             if (isServer)
             {
-                //Aca se deberia mandar un mensaje para avisar a los demas clientes
-                //Que se agrego uno nuevo.
+                List<(int, string)> players = new List<(int, string)>();
+
+                for (int i = 0; i < clients.Count; i++)
+                {
+                    players.Add((clients[i].id, clients[i].clientName));
+                }
+
+                ServerToClientHandShake serverToClient = new ServerToClientHandShake(players);
+                Broadcast(serverToClient.Serialize());
             }
         }
         else
@@ -95,35 +119,73 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         }
     }
 
-    void RemoveClient(IPEndPoint ip)
+    public void RemoveClient(int idToRemove)
     {
-        if (ipToId.ContainsKey(ip))
+        if (clients.ContainsKey(idToRemove))
         {
-            Debug.Log("Removing client: " + ip.Address);
-            clients.Remove(ipToId[ip]);
+            Debug.Log("Removing client: " + idToRemove);
+
+            checkActivity.RemoveClientForList(idToRemove);
+
+            ipToId.Remove(clients[idToRemove].ipEndPoint);
+            players.Remove(idToRemove);
+            clients.Remove(idToRemove);
+
+
+            //TODO: Tengo que avisar que se desconecto el player ID
         }
     }
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
+        //Esta fallando el IpToId porque los clientes no lo tienen, es algo que maneja unicamente el server
 
         switch (messageChecker.CheckMessageType(data))
         {
-            case MessageType.CheckActivity:
+            case MessageType.Ping:
+
+                if (isServer)
+                {
+                    if (ipToId.ContainsKey(ip))
+                    {
+                        checkActivity.ReciveClientToServerPingMessage(ipToId[ip]);
+                    }
+                    else
+                    {
+                        Debug.LogError("Fail Client ID");
+                    }
+                }
+                else
+                {
+                    checkActivity.ReciveServerToClientPingMessage();
+                }
 
                 break;
-            
-            case MessageType.SetClientID:
 
-                NetSetClientID netGetClientID = new NetSetClientID(data);
-                actualClientId = netGetClientID.GetData();
-                AddClient(ip, actualClientId);
-                Debug.Log("Me llego el nro de cliente " + actualClientId);     
+            case MessageType.ServerToClientHandShake:
+
+                ServerToClientHandShake netGetClientID = new ServerToClientHandShake(data);
+
+                List<(int clientId, string userName)> playerList = netGetClientID.GetData();
+
+                players.Clear();
+                for (int i = 0; i < playerList.Count; i++)
+                {
+                    if (playerList[i].userName == userName)
+                    {
+                        actualClientId = playerList[i].clientId;
+                    }
+
+                    Debug.Log(playerList[i].clientId + " - " + playerList[i].userName);
+                    Player playerToAdd = new Player(playerList[i].clientId, playerList[i].userName);
+                    players.Add(playerList[i].clientId, playerToAdd);
+                }
+
                 break;
 
-            case MessageType.HandShake:
+            case MessageType.ClientToServerHandShake:
 
-                ConnectToServer(data, ip);
+                ReciveClientToServerHandShake(data, ip);
 
                 break;
             case MessageType.Console:
@@ -136,6 +198,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             case MessageType.NewCustomerNotice:
                 break;
             case MessageType.Disconnection:
+
+                if (ipToId.ContainsKey(ip))
+                {
+                    int playerID = ipToId[ip];
+                    if (isServer)
+                    {
+                        Broadcast(data);
+                        RemoveClient(playerID);
+                    }
+                    else
+                    {
+                        Debug.Log("Remove player " + playerID);
+                        RemoveClient(playerID);
+                    }
+                }
+
                 break;
             case MessageType.ThereIsNoPlace:
                 break;
@@ -144,10 +222,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             default:
                 break;
         }
-
-
-        if (OnReceiveEvent != null)
-            OnReceiveEvent.Invoke(data, ip);
     }
 
     public void SendToServer(byte[] data)
@@ -173,63 +247,59 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     void Update()
     {
+
         // Flush the data in main thread
         if (connection != null)
+        {
             connection.FlushReceiveData();
+
+            if (checkActivity != null)
+            {
+                checkActivity.UpdateCheckActivity();
+            }
+        }
+
+
     }
 
-    void ConnectToServer(byte[] data, IPEndPoint ip)
+    void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)
     {
-        NetHandShake handShake = new NetHandShake(data);
+        ClientToServerNetHandShake handShake = new ClientToServerNetHandShake(data);
 
         if (!clients.ContainsKey(serverClientId))
         {
-            //Le asigna un ID al cliente y despues lo broadcastea
-            NetSetClientID netSetClientID = new NetSetClientID(serverClientId);
-            Broadcast(netSetClientID.Serialize(), ip);
-
-            AddClient(ip, serverClientId);
+            AddClient(ip, serverClientId, handShake.GetData().Item3);
             serverClientId++;
         }
     }
 
     private void UpdateChatText(byte[] data)
     {
-        int netMessageSum = 0;
-        int sum = 0;
-        char[] aux;
         string text = "";
-
-        NetMessage.Deserialize(data, out aux, out netMessageSum);
-
-
-        for (int i = 0; i < aux.Length; i++)
-        {
-            sum += (int)aux[i];
-        }
-
-        Debug.Log(sum);
-
-        if (sum != netMessageSum)
-        {
-            //Pido el paquete de nuevo.
-            UnityEngine.Debug.Log("El mensaje llegó corrupto");
-
-            return;
-        }
+        NetMessage netMessage = new NetMessage(data);
+        text = new string(netMessage.GetData());
 
         if (isServer)
         {
             Broadcast(data);
         }
 
-        for (int i = 0; i < aux.Length; i++)
-        {
-            text += aux[i];
-        }
-
-        Debug.Log(text);
-
         ChatScreen.Instance.messages.text += text + System.Environment.NewLine;
+    }
+
+    void OnApplicationQuit()
+    {
+        if (!isServer)
+        {
+            NetDisconnection netDisconnection = new NetDisconnection(actualClientId);
+            SendToServer(netDisconnection.Serialize());
+        }
+    }
+    public void DisconectPlayer()
+    {
+        if (!isServer)
+        {
+            connection.Close();
+        }
     }
 }

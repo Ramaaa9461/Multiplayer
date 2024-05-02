@@ -3,12 +3,16 @@ using UnityEngine;
 
 public class PingPong
 {
-    int timeUntilDisconnection = 30;
-    private Dictionary<int, float> lastMessageReceivedFromClients = new Dictionary<int, float>();
-    float lastMessageReceivedFromServer = 0;
+    int timeUntilDisconnection = 5;
 
-    float counter = 0;
+    private Dictionary<int, float> lastMessageReceivedFromClients = new Dictionary<int, float>(); //Lo usa el Server
+    float lastMessageReceivedFromServer = 0; //Lo usan los clientes
+
     float sendMessageCounter = 0;
+
+    public PingPong()
+    {
+    }
 
     public void AddClientForList(int idToAdd)
     {
@@ -20,22 +24,20 @@ public class PingPong
         lastMessageReceivedFromClients.Remove(idToRemove);
     }
 
-    public void ReciveCheckActivityMessage(int playerID)
+    public void ReciveServerToClientPingMessage()
     {
-        if (NetworkManager.Instance.isServer)
-        {
-            lastMessageReceivedFromClients[playerID] = 0;
-        }
-        else
-        {
-            lastMessageReceivedFromServer = 0;
-        }
+        lastMessageReceivedFromServer = 0;
+    }
+
+    public void ReciveClientToServerPingMessage(int playerID)
+    {
+        lastMessageReceivedFromClients[playerID] = 0;
     }
 
     public void UpdateCheckActivity()
     {
-        counter += Time.deltaTime;
         sendMessageCounter += Time.deltaTime;
+
 
         if (sendMessageCounter > 1.0f) //Envio cada 1 segundo el mensaje
         {
@@ -45,11 +47,29 @@ public class PingPong
 
         if (NetworkManager.Instance.isServer)
         {
+            var keys = new List<int>(lastMessageReceivedFromClients.Keys);
+
+            foreach (var key in keys)
+            {
+                lastMessageReceivedFromClients[key] += Time.deltaTime;
+            }
+        }
+        else
+        {
+            lastMessageReceivedFromServer += Time.deltaTime;
+        }
+
+
+        if (NetworkManager.Instance.isServer)
+        {
             for (int i = 0; i < lastMessageReceivedFromClients.Count; i++)
             {
                 if (lastMessageReceivedFromClients[i] > timeUntilDisconnection)
                 {
                     NetworkManager.Instance.RemoveClient(i);
+
+                    NetDisconnection netDisconnection = new NetDisconnection(i);
+                    NetworkManager.Instance.Broadcast(netDisconnection.Serialize());
                 }
             }
         }
@@ -57,8 +77,10 @@ public class PingPong
         {
             if (lastMessageReceivedFromServer > timeUntilDisconnection)
             {
-                // Se murio el server
-                 // Mando mensaje por las dudas y cierro la conexcion
+                NetDisconnection netDisconnection = new NetDisconnection(NetworkManager.Instance.actualClientId);
+                NetworkManager.Instance.SendToServer(netDisconnection.Serialize());
+
+                NetworkManager.Instance.DisconectPlayer();
             }
         }
     }

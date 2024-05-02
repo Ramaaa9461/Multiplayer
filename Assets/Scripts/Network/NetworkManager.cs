@@ -63,7 +63,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     private void Start()
     {
         messageChecker = new MessageChecker();
-      //  checkActivity = new PingPong();
     }
 
     public void StartServer(int port)
@@ -71,6 +70,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         isServer = true;
         this.port = port;
         connection = new UdpConnection(port, this);
+
+        checkActivity = new PingPong();
     }
 
     public void StartClient(IPAddress ip, int port, string name)
@@ -82,6 +83,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         this.userName = name;
 
         connection = new UdpConnection(ip, port, this);
+        checkActivity = new PingPong();
 
         ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake((UdpConnection.IPToLong(ip), port, name));
         SendToServer(handShakeMesage.Serialize());
@@ -96,7 +98,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             ipToId[ip] = newClientID;
             clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
 
-          //  checkActivity.AddClientForList(newClientID);
+            checkActivity.AddClientForList(newClientID);
 
             if (isServer)
             {
@@ -117,13 +119,13 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         }
     }
 
-  public  void RemoveClient(int idToRemove)
+    public void RemoveClient(int idToRemove)
     {
         if (clients.ContainsKey(idToRemove))
         {
             Debug.Log("Removing client: " + idToRemove);
 
-          //  checkActivity.RemoveClientForList(idToRemove);
+            checkActivity.RemoveClientForList(idToRemove);
 
             ipToId.Remove(clients[idToRemove].ipEndPoint);
             players.Remove(idToRemove);
@@ -136,9 +138,27 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
+        //Esta fallando el IpToId porque los clientes no lo tienen, es algo que maneja unicamente el server
+
         switch (messageChecker.CheckMessageType(data))
         {
             case MessageType.Ping:
+
+                if (isServer)
+                {
+                    if (ipToId.ContainsKey(ip))
+                    {
+                        checkActivity.ReciveClientToServerPingMessage(ipToId[ip]);
+                    }
+                    else
+                    {
+                        Debug.LogError("Fail Client ID");
+                    }
+                }
+                else
+                {
+                    checkActivity.ReciveServerToClientPingMessage();
+                }
 
                 break;
 
@@ -178,6 +198,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             case MessageType.NewCustomerNotice:
                 break;
             case MessageType.Disconnection:
+
+                if (ipToId.ContainsKey(ip))
+                {
+                    int playerID = ipToId[ip];
+                    if (isServer)
+                    {
+                        Broadcast(data);
+                        RemoveClient(playerID);
+                    }
+                    else
+                    {
+                        Debug.Log("Remove player " + playerID);
+                        RemoveClient(playerID);
+                    }
+                }
+
                 break;
             case MessageType.ThereIsNoPlace:
                 break;
@@ -211,11 +247,19 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     void Update()
     {
+
         // Flush the data in main thread
         if (connection != null)
+        {
             connection.FlushReceiveData();
 
-      //  checkActivity.UpdateCheckActivity();
+            if (checkActivity != null)
+            {
+                checkActivity.UpdateCheckActivity();
+            }
+        }
+
+
     }
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)
@@ -241,5 +285,21 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         }
 
         ChatScreen.Instance.messages.text += text + System.Environment.NewLine;
+    }
+
+    void OnApplicationQuit()
+    {
+        if (!isServer)
+        {
+            NetDisconnection netDisconnection = new NetDisconnection(actualClientId);
+            SendToServer(netDisconnection.Serialize());
+        }
+    }
+    public void DisconectPlayer()
+    {
+        if (!isServer)
+        {
+            connection.Close();
+        }
     }
 }

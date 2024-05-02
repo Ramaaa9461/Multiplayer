@@ -155,7 +155,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
             offSet += sizeof(int);
             int clientNameLength = BitConverter.ToInt32(message, offSet);
             string name = MessageChecker.DeserializeString(message, offSet);
-            offSet += sizeof(char) * clientNameLength + sizeof(int); 
+            offSet += sizeof(char) * clientNameLength + sizeof(int);
 
             outData.Add((clientID, name));
         }
@@ -211,9 +211,17 @@ public class NetMessage : IMessage<char[]>
     {
         string text = MessageChecker.DeserializeString(message, sizeof(int));
 
-        Debug.Log(MessageChecker.DeserializeCheckSum(message));
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            return text.ToCharArray();
+        }
+        else
+        {
+            text = "Message corrupted.";
+            Debug.LogError(text);
+            return text.ToCharArray();
+        }
 
-        return text.ToCharArray();
     }
 
     public MessageType GetMessageType()
@@ -248,6 +256,46 @@ public class NetPing
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+
+        return outData.ToArray();
+    }
+}
+
+public class NetDisconnection : IMessage<int>
+{
+    int clientToDisconect;
+
+    public NetDisconnection(int clientToDisconect)
+    {
+        this.clientToDisconect = clientToDisconect;
+    }
+
+    public NetDisconnection(byte[] data)
+    {
+        this.clientToDisconect = Deserialize(data);
+    }
+
+    public int Deserialize(byte[] message)
+    {
+        return BitConverter.ToInt32(message, sizeof(int));
+    }
+
+    public MessageType GetMessageType()
+    {
+        return MessageType.Disconnection;
+    }
+
+    public int GetData()
+    {
+        return clientToDisconect;
+    }
+
+    public byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(BitConverter.GetBytes(clientToDisconect));
 
         return outData.ToArray();
     }

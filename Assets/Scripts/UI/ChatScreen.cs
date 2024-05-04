@@ -17,6 +17,8 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
     {
         if (inputMessage.text != "")
         {
+            string name = NetworkManager.Instance.userName + ": ";
+            str = name + str;
             if (NetworkManager.Instance.isServer)
             {
                 NetMessage netMessage = new NetMessage(str.ToCharArray());

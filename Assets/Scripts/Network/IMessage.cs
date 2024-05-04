@@ -9,6 +9,7 @@ using UnityEditor.VersionControl;
 
 public enum MessageType
 {
+    Error = -4,
     Ping = -3,
     ServerToClientHandShake = -2,
     ClientToServerHandShake = -1,
@@ -191,6 +192,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
 public class NetMessage : IMessage<char[]>
 {
     char[] data;
+    
 
     public NetMessage(char[] data)
     {
@@ -209,19 +211,19 @@ public class NetMessage : IMessage<char[]>
 
     public char[] Deserialize(byte[] message)
     {
-        string text = MessageChecker.DeserializeString(message, sizeof(int));
+        string text = "";
 
         if (MessageChecker.DeserializeCheckSum(message))
         {
-            return text.ToCharArray();
+        text = MessageChecker.DeserializeString(message, sizeof(int));
         }
         else
         {
             text = "Message corrupted.";
             Debug.LogError(text);
-            return text.ToCharArray();
         }
 
+            return text.ToCharArray();
     }
 
     public MessageType GetMessageType()
@@ -296,6 +298,58 @@ public class NetDisconnection : IMessage<int>
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
         outData.AddRange(BitConverter.GetBytes(clientToDisconect));
+
+        return outData.ToArray();
+    }
+}
+
+public class NetErrorMessage : IMessage<string>
+{
+    string error;
+
+    public NetErrorMessage(string error)
+    {
+        this.error = error;
+    }
+    public NetErrorMessage(byte[] message)
+    {
+        error = Deserialize(message);
+    }
+
+    public string Deserialize(byte[] message)
+    {
+
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+
+        error = MessageChecker.DeserializeString(message, sizeof(int));
+        }
+        else
+        {
+            error = "Corrupted Package";
+            Debug.LogError(error);
+        }
+
+        return error;
+    }
+
+    public MessageType GetMessageType()
+    {
+        return MessageType.Error;
+    }
+
+    public string GetData()
+    {
+        return error;
+    }
+
+    public byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(MessageChecker.SerializeString(error.ToCharArray()));
+        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
 
         return outData.ToArray();
     }

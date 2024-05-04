@@ -9,9 +9,11 @@ public class PingPong
     float lastMessageReceivedFromServer = 0; //Lo usan los clientes
 
     float sendMessageCounter = 0;
+    float secondsPerCheck = 1.0f;
 
     public PingPong()
     {
+       
     }
 
     public void AddClientForList(int idToAdd)
@@ -38,13 +40,21 @@ public class PingPong
     {
         sendMessageCounter += Time.deltaTime;
 
-
-        if (sendMessageCounter > 1.0f) //Envio cada 1 segundo el mensaje
+        if (sendMessageCounter > secondsPerCheck) //Envio cada 1 segundo el mensaje
         {
             SendPingMessage();
             sendMessageCounter = 0;
         }
 
+            CheckActivityCounter();
+            CheckTimeUntilDisconection();
+        
+
+
+    }
+
+    void CheckActivityCounter()
+    {
         if (NetworkManager.Instance.isServer)
         {
             var keys = new List<int>(lastMessageReceivedFromClients.Keys);
@@ -58,17 +68,19 @@ public class PingPong
         {
             lastMessageReceivedFromServer += Time.deltaTime;
         }
+    }
 
-
+    void CheckTimeUntilDisconection()
+    {
         if (NetworkManager.Instance.isServer)
         {
-            for (int i = 0; i < lastMessageReceivedFromClients.Count; i++)
+            foreach (int clientID in lastMessageReceivedFromClients.Keys)
             {
-                if (lastMessageReceivedFromClients[i] > timeUntilDisconnection)
+                if (lastMessageReceivedFromClients[clientID] > timeUntilDisconnection)
                 {
-                    NetworkManager.Instance.RemoveClient(i);
+                    NetworkManager.Instance.RemoveClient(clientID);
 
-                    NetDisconnection netDisconnection = new NetDisconnection(i);
+                    NetDisconnection netDisconnection = new NetDisconnection(clientID);
                     NetworkManager.Instance.Broadcast(netDisconnection.Serialize());
                 }
             }

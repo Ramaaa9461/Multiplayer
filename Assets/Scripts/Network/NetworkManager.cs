@@ -53,12 +53,14 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
     private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
-    string userName = "";
+   public string userName = "Server";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
     public int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
 
     MessageChecker messageChecker;
     PingPong checkActivity;
+
+    int maxPlayersPerServer = 4;
 
     private void Start()
     {
@@ -96,20 +98,20 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             Debug.Log("Adding client: " + ip.Address);
 
             ipToId[ip] = newClientID;
-            clients.Add(serverClientId, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
+            clients.Add(newClientID, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
 
             checkActivity.AddClientForList(newClientID);
 
             if (isServer)
             {
-                List<(int, string)> players = new List<(int, string)>();
+                List<(int, string)> playersInServer = new List<(int, string)>();
 
-                for (int i = 0; i < clients.Count; i++)
+                foreach (int id in clients.Keys)
                 {
-                    players.Add((clients[i].id, clients[i].clientName));
+                    playersInServer.Add((clients[id].id, clients[id].clientName));
                 }
 
-                ServerToClientHandShake serverToClient = new ServerToClientHandShake(players);
+                ServerToClientHandShake serverToClient = new ServerToClientHandShake(playersInServer);
                 Broadcast(serverToClient.Serialize());
             }
         }
@@ -190,7 +192,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 break;
             case MessageType.Console:
 
-                UpdateChatText(data);
+                UpdateChatText(data, ip);
                 break;
 
             case MessageType.Position:
@@ -199,25 +201,33 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 break;
             case MessageType.Disconnection:
 
-                if (ipToId.ContainsKey(ip))
+                NetDisconnection netDisconnection = new NetDisconnection(data);
+
+                int playerID = netDisconnection.GetData();
+                if (isServer)
                 {
-                    int playerID = ipToId[ip];
-                    if (isServer)
-                    {
-                        Broadcast(data);
-                        RemoveClient(playerID);
-                    }
-                    else
-                    {
-                        Debug.Log("Remove player " + playerID);
-                        RemoveClient(playerID);
-                    }
+                    Broadcast(data);
+                    RemoveClient(playerID);
+                }
+                else
+                {
+                    Debug.Log("Remove player " + playerID);
+                    RemoveClient(playerID);
                 }
 
                 break;
             case MessageType.ThereIsNoPlace:
                 break;
             case MessageType.RepeatMessage:
+                break;
+            case MessageType.Error:
+
+                NetErrorMessage netErrorMessage = new NetErrorMessage(data);
+
+                NetworkScreen.Instance.SwitchToMenuScreen();
+                NetworkScreen.Instance.ShowErrorPanel(netErrorMessage.GetData());
+                connection.Close();
+
                 break;
             default:
                 break;
@@ -247,7 +257,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     void Update()
     {
-
         // Flush the data in main thread
         if (connection != null)
         {
@@ -258,33 +267,50 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 checkActivity.UpdateCheckActivity();
             }
         }
-
-
     }
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)
     {
         ClientToServerNetHandShake handShake = new ClientToServerNetHandShake(data);
 
-        if (!clients.ContainsKey(serverClientId))
+        Debug.Log(CheckValidUserName(handShake.GetData().Item3));
+        if (CheckValidUserName(handShake.GetData().Item3))
         {
             AddClient(ip, serverClientId, handShake.GetData().Item3);
             serverClientId++;
         }
+        else
+        {
+            NetErrorMessage netInvalidUserName = new NetErrorMessage("Invalid User Name");
+            Broadcast(netInvalidUserName.Serialize(), ip);
+        }
     }
 
-    private void UpdateChatText(byte[] data)
+    bool CheckValidUserName(string userName)
     {
-        string text = "";
+        foreach (int clientID in clients.Keys)
+        {
+            if (userName == clients[clientID].clientName)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void UpdateChatText(byte[] data, IPEndPoint ip)
+    {
+        string messageText = "";
+
         NetMessage netMessage = new NetMessage(data);
-        text = new string(netMessage.GetData());
+        messageText += new string(netMessage.GetData());
 
         if (isServer)
         {
             Broadcast(data);
         }
 
-        ChatScreen.Instance.messages.text += text + System.Environment.NewLine;
+        ChatScreen.Instance.messages.text +=  messageText + System.Environment.NewLine;
     }
 
     void OnApplicationQuit()
@@ -293,6 +319,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         {
             NetDisconnection netDisconnection = new NetDisconnection(actualClientId);
             SendToServer(netDisconnection.Serialize());
+        }
+        else
+        {
+            //TODO: Habria que hace qe el server tire un mensaje a todos los player
         }
     }
     public void DisconectPlayer()

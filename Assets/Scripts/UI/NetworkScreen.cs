@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Net;
+using TMPro;
 
 public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
 {
@@ -11,6 +12,9 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
     public InputField nameInputField;
     public InputField portInputField;
     public InputField addressInputField;
+
+    [SerializeField] GameObject panelError;
+    [SerializeField] TextMeshProUGUI errorText;
 
     protected override void Initialize()
     {
@@ -24,7 +28,7 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
         int port = System.Convert.ToInt32(portInputField.text);
 
         NetworkManager.Instance.StartClient(ipAddress, port, nameInputField.text);
-        
+
         SwitchToChatScreen();
     }
 
@@ -39,5 +43,24 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
     {
         ChatScreen.Instance.gameObject.SetActive(true);
         this.gameObject.SetActive(false);
+    }
+
+    public void SwitchToMenuScreen()
+    {
+        ChatScreen.Instance.gameObject.SetActive(false);
+        this.gameObject.SetActive(true);
+    }
+
+    public void ShowErrorPanel(string errorString)
+    {
+        panelError.SetActive(true);
+        errorText.text = errorString;
+
+        Invoke(nameof(TurnOffErrorPanel), 3.0f);
+    }
+
+    void TurnOffErrorPanel()
+    {
+       panelError.SetActive(false);
     }
 }

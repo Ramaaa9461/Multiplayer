@@ -41,8 +41,11 @@ public class ServerGameplay : MonoBehaviour
                     if (nm.clients.Count >= minPlayerToInitCounter)
                     {
                         counter += Time.deltaTime;
-                        timer.text = counter + "s";
-                        
+                        timer.text = counter.ToString("F2") + "s";
+
+                        NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(counter);
+                        nm.Broadcast(netUpdateLobbyTimer.Serialize());
+
                         if (counter >= minutesInLobby)
                         {
                             timer.text = "";
@@ -60,7 +63,10 @@ public class ServerGameplay : MonoBehaviour
                 case States.Game:
 
                     minutesGameplay -= Time.deltaTime;
-                    timer.text = minutesGameplay + "s";
+                    timer.text = minutesGameplay.ToString("F2") + "s";
+
+                    NetUpdateTimer netUpdateGameplayTimer = new NetUpdateTimer(minutesGameplay);
+                    nm.Broadcast(  netUpdateGameplayTimer.Serialize());
 
                     if (minutesGameplay <= 0)
                     {

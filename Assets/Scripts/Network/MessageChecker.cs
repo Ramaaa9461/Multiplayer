@@ -39,7 +39,6 @@ public class MessageChecker
         for (int i = 0; i < stringSize; i++)
         {
             charArray[i] = BitConverter.ToChar(message, indexToInit + sizeof(char) * i);
-            Debug.Log(charArray[i]);
         }
 
         return new string(charArray);
@@ -48,10 +47,15 @@ public class MessageChecker
     public static bool DeserializeCheckSum(byte[] message)
     {
         int messageSum = BitConverter.ToInt32(message, message.Length - sizeof(int));
-
         messageSum >>= 5;
 
-        return messageSum == message.Length;
+        if (messageSum != message.Length)
+        {
+            Debug.LogError("Message corrupted.");
+            return false;
+        }
+
+        return true;
     }
 
     public static byte[] SerializeCheckSum(List<byte> data)

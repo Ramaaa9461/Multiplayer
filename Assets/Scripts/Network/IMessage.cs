@@ -15,10 +15,10 @@ public enum MessageType
     ClientToServerHandShake = -1,
     Console = 0,
     Position = 1,
-    NewCustomerNotice = 2,
+    BulletInstatiate = 2,
     Disconnection = 3,
     ThereIsNoPlace = 4,
-    RepeatMessage = 5
+    UpdateTimer = 5
 };
 
 public interface IMessage<T>
@@ -26,7 +26,7 @@ public interface IMessage<T>
     public const int _INT = sizeof(int);
 
     public MessageType GetMessageType();
-    public byte[] Serialize();
+    public byte[] Serialize(); //Hay que poner el Checksum siempre como ultimo parametro
     public T Deserialize(byte[] message);
 }
 
@@ -81,30 +81,49 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
     }
 }
 
-public class NetVector3 : IMessage<UnityEngine.Vector3>
+public class NetVector3 : IMessage<(int, Vector3)>
 {
-    private static ulong lastMsgID = 0;
-    private Vector3 data;
+    private (int id, Vector3 position) data;
 
-    public NetVector3(Vector3 data)
+    MessageType currentMessageType = MessageType.Position;
+
+    public NetVector3((int, Vector3) data)
     {
         this.data = data;
     }
 
-    public Vector3 Deserialize(byte[] message)
+    public NetVector3(byte[] data)
     {
-        Vector3 outData;
+        this.data = Deserialize(data);
+    }
 
-        outData.x = BitConverter.ToSingle(message, 8);
-        outData.y = BitConverter.ToSingle(message, 12);
-        outData.z = BitConverter.ToSingle(message, 16);
+  public (int id, Vector3 position) GetData()
+    {
+        return data;
+    }
+
+
+    public (int, Vector3) Deserialize(byte[] message)
+    {
+        (int id, Vector3 position) outData;
+
+        outData.id = BitConverter.ToInt32(message, 4);
+
+        outData.position.x = BitConverter.ToSingle(message, 8);
+        outData.position.y = BitConverter.ToSingle(message, 12);
+        outData.position.z = BitConverter.ToSingle(message, 16);
 
         return outData;
     }
 
+    public void SetMessageType(MessageType type)
+    {
+        currentMessageType = type;
+    }
+
     public MessageType GetMessageType()
     {
-        return MessageType.Position;
+        return currentMessageType;
     }
 
     public byte[] Serialize()
@@ -112,10 +131,11 @@ public class NetVector3 : IMessage<UnityEngine.Vector3>
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(BitConverter.GetBytes(lastMsgID++));
-        outData.AddRange(BitConverter.GetBytes(data.x));
-        outData.AddRange(BitConverter.GetBytes(data.y));
-        outData.AddRange(BitConverter.GetBytes(data.z));
+        outData.AddRange(BitConverter.GetBytes(data.id));
+        
+        outData.AddRange(BitConverter.GetBytes(data.position.x));
+        outData.AddRange(BitConverter.GetBytes(data.position.y));
+        outData.AddRange(BitConverter.GetBytes(data.position.z));
 
         return outData.ToArray();
     }
@@ -192,7 +212,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
 public class NetMessage : IMessage<char[]>
 {
     char[] data;
-    
+
 
     public NetMessage(char[] data)
     {
@@ -215,15 +235,10 @@ public class NetMessage : IMessage<char[]>
 
         if (MessageChecker.DeserializeCheckSum(message))
         {
-        text = MessageChecker.DeserializeString(message, sizeof(int));
-        }
-        else
-        {
-            text = "Message corrupted.";
-            Debug.LogError(text);
+            text = MessageChecker.DeserializeString(message, sizeof(int));
         }
 
-            return text.ToCharArray();
+        return text.ToCharArray();
     }
 
     public MessageType GetMessageType()
@@ -321,13 +336,7 @@ public class NetErrorMessage : IMessage<string>
 
         if (MessageChecker.DeserializeCheckSum(message))
         {
-
-        error = MessageChecker.DeserializeString(message, sizeof(int));
-        }
-        else
-        {
-            error = "Corrupted Package";
-            Debug.LogError(error);
+            error = MessageChecker.DeserializeString(message, sizeof(int));
         }
 
         return error;
@@ -349,6 +358,46 @@ public class NetErrorMessage : IMessage<string>
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
         outData.AddRange(MessageChecker.SerializeString(error.ToCharArray()));
+        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
+
+        return outData.ToArray();
+    }
+}
+
+public class NetUpdateTimer : IMessage<float>
+{
+    float timer;
+
+    public NetUpdateTimer(float timer)
+    {
+        this.timer = timer;
+    }
+
+    public NetUpdateTimer(byte[] data)
+    {
+        this.timer = Deserialize(data);
+    }
+
+    public float Deserialize(byte[] message)
+    {
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            return BitConverter.ToSingle(message, sizeof(int));
+        }
+
+        return -1f;
+    }
+
+    public MessageType GetMessageType()
+    {
+        return MessageType.UpdateTimer;
+    }
+
+    public byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
         outData.AddRange(MessageChecker.SerializeCheckSum(outData));
 
         return outData.ToArray();

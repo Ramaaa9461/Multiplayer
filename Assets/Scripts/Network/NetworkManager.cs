@@ -55,8 +55,9 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public string userName = "Server";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
-    public int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
+    public int actualClientId = -1; // Es el ID de ESTE cliente (no aplica al server)
 
+    GameManager gm;
     MessageChecker messageChecker;
     PingPong checkActivity;
 
@@ -64,6 +65,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     private void Start()
     {
+        gm = GameManager.Instance;
         messageChecker = new MessageChecker();
     }
 
@@ -101,6 +103,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             clients.Add(newClientID, new Client(ip, newClientID, Time.realtimeSinceStartup, clientName));
 
             checkActivity.AddClientForList(newClientID);
+            gm.OnNewPlayer?.Invoke(newClientID);
 
             if (isServer)
             {
@@ -123,6 +126,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void RemoveClient(int idToRemove)
     {
+        gm.OnRemovePlayer?.Invoke(idToRemove);
+
         if (clients.ContainsKey(idToRemove))
         {
             Debug.Log("Removing client: " + idToRemove);
@@ -132,7 +137,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             ipToId.Remove(clients[idToRemove].ipEndPoint);
             players.Remove(idToRemove);
             clients.Remove(idToRemove);
-
 
             //TODO: Tengo que avisar que se desconecto el player ID
         }
@@ -170,17 +174,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 List<(int clientId, string userName)> playerList = netGetClientID.GetData();
 
-                players.Clear();
-                for (int i = 0; i < playerList.Count; i++)
+                for (int i = 0; i < playerList.Count; i++) //Verifico primero que cliente soy
                 {
                     if (playerList[i].userName == userName)
                     {
                         actualClientId = playerList[i].clientId;
                     }
+                }
 
+                players.Clear();
+                for (int i = 0; i < playerList.Count; i++)
+                {
                     Debug.Log(playerList[i].clientId + " - " + playerList[i].userName);
                     Player playerToAdd = new Player(playerList[i].clientId, playerList[i].userName);
                     players.Add(playerList[i].clientId, playerToAdd);
+
+                    gm.OnNewPlayer?.Invoke(playerToAdd.id);
                 }
 
                 break;
@@ -196,8 +205,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 break;
 
             case MessageType.Position:
+
+                UpdateCubePosition(data);
+
                 break;
-            case MessageType.NewCustomerNotice:
+            case MessageType.BulletInstatiate:
+
+                NetVector3 netBullet = new NetVector3(data);
+                gm.OnInstantiateBullet?.Invoke(netBullet.GetData().id, netBullet.GetData().position);
+                //TODO: Falta brocastearlas
+
                 break;
             case MessageType.Disconnection:
 
@@ -218,7 +235,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 break;
             case MessageType.ThereIsNoPlace:
                 break;
-            case MessageType.RepeatMessage:
+            case MessageType.UpdateTimer:
+
+                NetUpdateTimer netUpdateTimer = new NetUpdateTimer(data);
+
                 break;
             case MessageType.Error:
 
@@ -359,4 +379,37 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             connection.Close();
         }
     }
+
+    private void UpdateCubePosition(byte[] data)
+    {
+        NetVector3 netPosition = new NetVector3(data);
+        int clientId = netPosition.GetData().id;
+
+        gm.UpdatePlayerPosition(netPosition.GetData());
+
+        if (isServer)
+        {
+            BroadcastPlayerPosition(clientId, data);
+        }
+    }
+
+    private void BroadcastPlayerPosition(int senderClientId, byte[] data)
+    {
+        using (var iterator = clients.GetEnumerator())
+        {
+            while (iterator.MoveNext())
+            {
+                int receiverClientId = iterator.Current.Key;
+
+                // Evita que te mandes tuu propia posicion
+                if (receiverClientId != senderClientId)
+                {
+                    //Chequea ambos IpEndPoint, y si el enviador es el mismo que el receptor, continua el loop sin hacer el Broadcast
+                    if (clients[receiverClientId].ipEndPoint.Equals(clients[senderClientId].ipEndPoint)) continue;
+                    Broadcast(data, clients[receiverClientId].ipEndPoint);
+                }
+            }
+        }
+    }
+
 }

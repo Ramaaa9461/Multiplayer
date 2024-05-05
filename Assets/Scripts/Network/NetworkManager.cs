@@ -49,11 +49,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     private UdpConnection connection;
 
-    private readonly Dictionary<int, Client> clients = new Dictionary<int, Client>(); //Esta lista la tiene el SERVER
+    public readonly Dictionary<int, Client> clients = new Dictionary<int, Client>(); //Esta lista la tiene el SERVER
     private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
     private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
-   public string userName = "Server";
+    public string userName = "Server";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
     public int actualClientId = 0; // Es el ID de ESTE cliente (no aplica al server)
 
@@ -273,28 +273,40 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         ClientToServerNetHandShake handShake = new ClientToServerNetHandShake(data);
 
-        Debug.Log(CheckValidUserName(handShake.GetData().Item3));
-        if (CheckValidUserName(handShake.GetData().Item3))
+        if (CheckValidUserName(handShake.GetData().Item3, ip) && !ServerIsFull(ip))
         {
             AddClient(ip, serverClientId, handShake.GetData().Item3);
             serverClientId++;
         }
-        else
-        {
-            NetErrorMessage netInvalidUserName = new NetErrorMessage("Invalid User Name");
-            Broadcast(netInvalidUserName.Serialize(), ip);
-        }
+
     }
 
-    bool CheckValidUserName(string userName)
+    bool ServerIsFull(IPEndPoint ip)
+    {
+        bool serverIsFull = clients.Count >= maxPlayersPerServer;
+
+        if (serverIsFull)
+        {
+            NetErrorMessage netServerIsFull = new NetErrorMessage("Server is full");
+            Broadcast(netServerIsFull.Serialize(), ip);
+        }
+
+        return serverIsFull;
+    }
+
+    bool CheckValidUserName(string userName, IPEndPoint ip)
     {
         foreach (int clientID in clients.Keys)
         {
             if (userName == clients[clientID].clientName)
             {
+                NetErrorMessage netInvalidUserName = new NetErrorMessage("Invalid User Name");
+                Broadcast(netInvalidUserName.Serialize(), ip);
+
                 return false;
             }
         }
+
         return true;
     }
 
@@ -310,7 +322,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             Broadcast(data);
         }
 
-        ChatScreen.Instance.messages.text +=  messageText + System.Environment.NewLine;
+        ChatScreen.Instance.messages.text += messageText + System.Environment.NewLine;
     }
 
     void OnApplicationQuit()
@@ -322,9 +334,24 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         }
         else
         {
-            //TODO: Habria que hace qe el server tire un mensaje a todos los player
+            NetErrorMessage netErrorMessage = new NetErrorMessage("Lost Connection To Server");
+            CloseServer();
         }
     }
+
+    public void CloseServer()
+    {
+        if (isServer)
+        {
+            foreach (int clientId in clients.Keys)
+            {
+                NetDisconnection netDisconnection = new NetDisconnection(clientId);
+                Broadcast(netDisconnection.Serialize());
+                RemoveClient(clientId);
+            }
+        }
+    }
+
     public void DisconectPlayer()
     {
         if (!isServer)

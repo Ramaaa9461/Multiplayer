@@ -11,7 +11,7 @@ public class PingPong
     float sendMessageCounter = 0;
     float secondsPerCheck = 1.0f;
 
-    public PingPong()
+    public PingPong() //Tenemos qe calcular la latencia
     {
        
     }

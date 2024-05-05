@@ -432,6 +432,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72a5dae07c2aed54dbe3d6f7bb5ef964, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  timer: {fileID: 448147849}
   spawnPositions:
   - {fileID: 1168962568}
   - {fileID: 105692493}
@@ -493,6 +494,7 @@ MonoBehaviour:
   userName: Server
   serverClientId: 0
   actualClientId: 0
+  matchOnGoing: 0
 --- !u!4 &180350410
 Transform:
   m_ObjectHideFlags: 0
@@ -3591,7 +3593,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8480446c5facaf48b79c60941f1f90e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timer: {fileID: 448147849}
 --- !u!4 &1918543524
 Transform:
   m_ObjectHideFlags: 0

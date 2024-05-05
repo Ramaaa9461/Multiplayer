@@ -5,14 +5,19 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    public int health = 3;
+    
     [SerializeField] float speed = 5f;
     [SerializeField] float cooldownShoot = 0.2f;
     [SerializeField] GameObject bulletPrefab;
 
     [SerializeField] bool canShoot = true;
     CharacterController cc;
-    public bool currentPlayer = false;
 
+    public bool currentPlayer = false;
+    public int clientID = -1;
+
+    GameManager gm;
     NetworkManager nm;
 
     private void Awake()
@@ -22,8 +27,8 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
+        gm = GameManager.Instance;
         nm = NetworkManager.Instance;
-
     }
 
     void Update()
@@ -62,7 +67,7 @@ public class PlayerController : MonoBehaviour
                 direction.Normalize();
 
                 GameObject bullet = Instantiate(bulletPrefab, transform.position + direction, Quaternion.identity);
-                bullet.GetComponent<BulletController>().SetDirection(direction);
+                bullet.GetComponent<BulletController>().SetDirection(direction, clientID);
 
                 NetVector3 netBullet = new NetVector3((nm.actualClientId, direction));
                 netBullet.SetMessageType(MessageType.BulletInstatiate);
@@ -88,8 +93,21 @@ public class PlayerController : MonoBehaviour
     public void ServerShoot(Vector3 direction)
     {
         GameObject bullet = Instantiate(bulletPrefab, transform.position + direction, Quaternion.identity);
-        bullet.GetComponent<BulletController>().SetDirection(direction);
+        bullet.GetComponent<BulletController>().SetDirection(direction, clientID);
     }
 
+    public void OnReciveDamage() //Solo lo maneja el server esta funcion
+    {
+        health--;
+        Debug.Log(clientID + " - " + health);
+
+        if (health <= 0)
+        {
+            //TODO: El server tiene que hecharlo de la partida
+            NetDisconnection netDisconnection = new NetDisconnection(clientID);
+            nm.Broadcast(netDisconnection.Serialize());
+            nm.RemoveClient(clientID);
+        }
+    }
 }
 

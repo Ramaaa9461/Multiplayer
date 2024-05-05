@@ -1,14 +1,19 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class GameManager : MonoBehaviourSingleton<GameManager>
 {
+    public Action<int> OnBulletHit;
+
     public Action<int> OnNewPlayer;
     public Action<int> OnRemovePlayer;
 
     public Action<int, Vector3> OnInstantiateBullet;
+
+   public TextMeshProUGUI timer;
 
     [SerializeField] Transform[] spawnPositions;
 
@@ -23,12 +28,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         OnNewPlayer += SpawnPlayerPefab;
         OnRemovePlayer += RemovePlayer;
         OnInstantiateBullet += InstantiatePlayerBullets;
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
+        OnBulletHit += OnHitRecieved;
     }
 
     void SpawnPlayerPefab(int index)
@@ -38,21 +38,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             playerList.Add(index, Instantiate(playerPrefab, spawnPositions[UnityEngine.Random.Range(0, spawnPositions.Length)].position, Quaternion.identity));
         }
 
-        if (index != nm.actualClientId)
+        if (playerList[index].TryGetComponent(out PlayerController pc))
         {
-            if (playerList[index].TryGetComponent(out PlayerController pc))
+            pc.clientID = index;
+
+            if (index != nm.actualClientId)
             {
                 pc.currentPlayer = false;
             }
-        }
-        else
-        {
-            if (playerList[index].TryGetComponent(out PlayerController pc))
+            else
             {
                 pc.currentPlayer = true;
             }
         }
-
     }
 
     void RemovePlayer(int index)
@@ -61,7 +59,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         playerList.Remove(index);
     }
 
-    void InstantiatePlayerBullets(int id , Vector3 bulletDir)
+    void InstantiatePlayerBullets(int id, Vector3 bulletDir)
     {
         playerList[id].GetComponent<PlayerController>().ServerShoot(bulletDir);
     }
@@ -69,5 +67,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public void UpdatePlayerPosition((int index, Vector3 newPosition) playerData)
     {
         playerList[playerData.index].transform.position = playerData.newPosition;
+    }
+
+    void OnHitRecieved(int playerReciveDamage)
+    {
+        if (nm.isServer)
+        {
+            if (playerList.ContainsKey(playerReciveDamage))
+            {
+                playerList[playerReciveDamage].transform.GetComponent<PlayerController>().OnReciveDamage();
+            }
+        }
     }
 }

@@ -7,14 +7,14 @@ enum States { Init, Lobby, Game, Finish };
 
 public class ServerGameplay : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI timer;
 
-    int minutesInLobby = 120;
-    float minutesGameplay = 180;
+    int minutesInLobby = 120; // 2 minutos
+    float minutesGameplay = 180; //3 minutos
     float timeUntilCloseServer = 2;
 
     int minPlayerToInitCounter = 2;
 
+    GameManager gm;
     NetworkManager nm;
     States currentState;
 
@@ -22,6 +22,7 @@ public class ServerGameplay : MonoBehaviour
 
     private void Start()
     {
+        gm = GameManager.Instance;
         nm = NetworkManager.Instance;
     }
 
@@ -41,21 +42,24 @@ public class ServerGameplay : MonoBehaviour
                     if (nm.clients.Count >= minPlayerToInitCounter)
                     {
                         counter += Time.deltaTime;
-                        timer.text = counter.ToString("F2") + "s";
+                        gm.timer.text = counter.ToString("F2") + "s";
 
                         NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(counter);
+                        netUpdateLobbyTimer.SetMessageType(MessageType.UpdateLobbyTimer);
                         nm.Broadcast(netUpdateLobbyTimer.Serialize());
 
                         if (counter >= minutesInLobby)
                         {
-                            timer.text = "";
+                            gm.timer.text = "";
+                            nm.matchOnGoing = true;
                             currentState = States.Game;
                         }
                     }
                     else
                     {
                         counter = 0;
-                        timer.text = "";
+                        Debug.Log(gm);
+                        gm.timer.text = "";
                         currentState = States.Init;
                     }
 
@@ -63,14 +67,15 @@ public class ServerGameplay : MonoBehaviour
                 case States.Game:
 
                     minutesGameplay -= Time.deltaTime;
-                    timer.text = minutesGameplay.ToString("F2") + "s";
+                    gm.timer.text = minutesGameplay.ToString("F2") + "s";
 
                     NetUpdateTimer netUpdateGameplayTimer = new NetUpdateTimer(minutesGameplay);
-                    nm.Broadcast(  netUpdateGameplayTimer.Serialize());
+                    netUpdateGameplayTimer.SetMessageType(MessageType.UpdateGameplayTimer);
+                    nm.Broadcast(netUpdateGameplayTimer.Serialize());
 
                     if (minutesGameplay <= 0)
                     {
-                        timer.text = "";
+                        gm.timer.text = "";
                         currentState = States.Finish;
                     }
                     break;

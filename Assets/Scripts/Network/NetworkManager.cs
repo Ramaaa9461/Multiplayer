@@ -62,6 +62,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     PingPong checkActivity;
 
     int maxPlayersPerServer = 4;
+    public bool matchOnGoing = false;
 
     private void Start()
     {
@@ -137,15 +138,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             ipToId.Remove(clients[idToRemove].ipEndPoint);
             players.Remove(idToRemove);
             clients.Remove(idToRemove);
+        }
 
-            //TODO: Tengo que avisar que se desconecto el player ID
+        if (!isServer && actualClientId == idToRemove)
+        {
+            NetworkScreen.Instance.SwitchToMenuScreen();
         }
     }
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
-        //Esta fallando el IpToId porque los clientes no lo tienen, es algo que maneja unicamente el server
-
         switch (messageChecker.CheckMessageType(data))
         {
             case MessageType.Ping:
@@ -206,14 +208,19 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
             case MessageType.Position:
 
-                UpdateCubePosition(data);
+                UpdatePlayerPosition(data);
 
                 break;
             case MessageType.BulletInstatiate:
 
                 NetVector3 netBullet = new NetVector3(data);
                 gm.OnInstantiateBullet?.Invoke(netBullet.GetData().id, netBullet.GetData().position);
-                //TODO: Falta brocastearlas
+
+                if (isServer)
+                {
+                    BroadcastPlayerPosition(netBullet.GetData().id, data);
+                }
+
 
                 break;
             case MessageType.Disconnection:
@@ -233,11 +240,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 }
 
                 break;
-            case MessageType.ThereIsNoPlace:
-                break;
-            case MessageType.UpdateTimer:
+            case MessageType.UpdateLobbyTimer:
 
-                NetUpdateTimer netUpdateTimer = new NetUpdateTimer(data);
+                NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(data);
+                gm.timer.text = netUpdateLobbyTimer.GetData().ToString("F2") + "s";
+
+                break;
+            case MessageType.UpdateGameplayTimer:
+
+                NetUpdateTimer netUpdateGameplayTimer = new NetUpdateTimer(data);
+                gm.timer.text = netUpdateGameplayTimer.GetData().ToString("F2") + "s";
 
                 break;
             case MessageType.Error:
@@ -293,12 +305,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         ClientToServerNetHandShake handShake = new ClientToServerNetHandShake(data);
 
-        if (CheckValidUserName(handShake.GetData().Item3, ip) && !ServerIsFull(ip))
+        if (!MatchOnGoing(ip) && CheckValidUserName(handShake.GetData().Item3, ip) && !ServerIsFull(ip))
         {
             AddClient(ip, serverClientId, handShake.GetData().Item3);
             serverClientId++;
         }
+    }
 
+    bool MatchOnGoing(IPEndPoint ip)
+    {
+        if (matchOnGoing)
+        {
+            NetErrorMessage netServerIsFull = new NetErrorMessage("Match has already started");
+            Broadcast(netServerIsFull.Serialize(), ip);
+        }
+
+        return matchOnGoing;
     }
 
     bool ServerIsFull(IPEndPoint ip)
@@ -377,10 +399,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         if (!isServer)
         {
             connection.Close();
+            NetworkScreen.Instance.SwitchToMenuScreen();
         }
     }
 
-    private void UpdateCubePosition(byte[] data)
+    private void UpdatePlayerPosition(byte[] data)
     {
         NetVector3 netPosition = new NetVector3(data);
         int clientId = netPosition.GetData().id;

@@ -17,8 +17,8 @@ public enum MessageType
     Position = 1,
     BulletInstatiate = 2,
     Disconnection = 3,
-    ThereIsNoPlace = 4,
-    UpdateTimer = 5
+    UpdateLobbyTimer = 4,
+    UpdateGameplayTimer = 5
 };
 
 public interface IMessage<T>
@@ -367,7 +367,7 @@ public class NetErrorMessage : IMessage<string>
 public class NetUpdateTimer : IMessage<float>
 {
     float timer;
-
+    MessageType currentMessageType = MessageType.UpdateLobbyTimer;
     public NetUpdateTimer(float timer)
     {
         this.timer = timer;
@@ -387,10 +387,19 @@ public class NetUpdateTimer : IMessage<float>
 
         return -1f;
     }
+    public float GetData()
+    {
+        return timer;
+    }
+
+    public void SetMessageType(MessageType type)
+    {
+        currentMessageType = type;
+    }
 
     public MessageType GetMessageType()
     {
-        return MessageType.UpdateTimer;
+        return currentMessageType;
     }
 
     public byte[] Serialize()

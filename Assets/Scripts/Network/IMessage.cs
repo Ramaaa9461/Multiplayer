@@ -1,11 +1,17 @@
-using System.Collections.Generic;
-using System.IO;
-using UnityEngine;
 using System;
-using System.Text;
-using System.Net;
-using UnityEngine.Networking.Types;
+using System.Collections.Generic;
 using UnityEditor.VersionControl;
+using UnityEngine;
+
+// ctrl R G  -- ctrl shift V -- shitf enter
+
+[Flags]
+public enum MessagePriority
+{
+    Default = 0,
+    Order = 1,
+
+}
 
 public enum MessageType
 {
@@ -18,7 +24,8 @@ public enum MessageType
     BulletInstatiate = 2,
     Disconnection = 3,
     UpdateLobbyTimer = 4,
-    UpdateGameplayTimer = 5
+    UpdateGameplayTimer = 5,
+    WinCondition = 6
 };
 
 public interface IMessage<T>
@@ -33,6 +40,7 @@ public interface IMessage<T>
 public class ClientToServerNetHandShake : IMessage<(long, int, string)>
 {
     (long ip, int port, string name) data;
+
 
     public ClientToServerNetHandShake((long, int, string) data)
     {
@@ -203,7 +211,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
             outData.AddRange(BitConverter.GetBytes(clientInfo.clientID)); // ID del client
             outData.AddRange(MessageChecker.SerializeString(clientInfo.clientName.ToCharArray())); //Nombre
         }
-
+        
         return outData.ToArray();
     }
 }
@@ -212,7 +220,6 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
 public class NetMessage : IMessage<char[]>
 {
     char[] data;
-
 
     public NetMessage(char[] data)
     {
@@ -364,32 +371,33 @@ public class NetErrorMessage : IMessage<string>
     }
 }
 
-public class NetUpdateTimer : IMessage<float>
+public class NetUpdateTimer : IMessage<bool>
 {
-    float timer;
+    bool initTimer;
     MessageType currentMessageType = MessageType.UpdateLobbyTimer;
-    public NetUpdateTimer(float timer)
+
+    public NetUpdateTimer(bool initTimer)
     {
-        this.timer = timer;
+        this.initTimer = initTimer;
     }
 
     public NetUpdateTimer(byte[] data)
     {
-        this.timer = Deserialize(data);
+        this.initTimer = Deserialize(data);
     }
 
-    public float Deserialize(byte[] message)
+    public bool Deserialize(byte[] message)
     {
         if (MessageChecker.DeserializeCheckSum(message))
         {
-            return BitConverter.ToSingle(message, sizeof(int));
+            return BitConverter.ToBoolean(message, sizeof(int));
         }
 
-        return -1f;
+        return false;
     }
-    public float GetData()
+    public bool GetData()
     {
-        return timer;
+        return initTimer;
     }
 
     public void SetMessageType(MessageType type)
@@ -407,6 +415,7 @@ public class NetUpdateTimer : IMessage<float>
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(BitConverter.GetBytes(initTimer));
         outData.AddRange(MessageChecker.SerializeCheckSum(outData));
 
         return outData.ToArray();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,9 +12,10 @@ public class PingPong
     float sendMessageCounter = 0;
     float secondsPerCheck = 1.0f;
 
+    DateTime currentDateTime = DateTime.UtcNow;
+
     public PingPong() //Tenemos qe calcular la latencia
     {
-       
     }
 
     public void AddClientForList(int idToAdd)

@@ -16,14 +16,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public Action<int, Vector3> OnInstantiateBullet;
 
-   public TextMeshProUGUI timer;
+    public TextMeshProUGUI timer;
 
     [SerializeField] Transform[] spawnPositions;
 
     [SerializeField] GameObject playerPrefab;
-    Dictionary<int, GameObject> playerList = new Dictionary<int, GameObject>();
+    public Dictionary<int, GameObject> playerList = new Dictionary<int, GameObject>();
 
     NetworkManager nm;
+    public bool isGameplay;
+
     void Start()
     {
         nm = NetworkManager.Instance;
@@ -32,6 +34,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         OnRemovePlayer += RemovePlayer;
         OnInstantiateBullet += InstantiatePlayerBullets;
         OnBulletHit += OnHitRecieved;
+
+        OnInitGameplayTimer += ActivePlayerControllers;
     }
 
     void SpawnPlayerPefab(int index)
@@ -52,6 +56,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             else
             {
                 pc.currentPlayer = true;
+            }
+
+            if (!nm.isServer)
+            {
+                pc.enabled = false;
             }
         }
     }
@@ -79,6 +88,17 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             if (playerList.ContainsKey(playerReciveDamage))
             {
                 playerList[playerReciveDamage].transform.GetComponent<PlayerController>().OnReciveDamage();
+            }
+        }
+    }
+
+    public void ActivePlayerControllers()
+    {
+        foreach (int index in playerList.Keys)
+        {
+            if (playerList[index].TryGetComponent(out PlayerController pc))
+            {
+                pc.enabled = true;
             }
         }
     }

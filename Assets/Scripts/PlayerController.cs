@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -76,8 +73,6 @@ public class PlayerController : MonoBehaviour
                 canShoot = false;
                 Invoke(nameof(SetCanShoot), cooldownShoot);
             }
-
-            System.Reflection.BindingFlags
         }
     }
 
@@ -101,12 +96,11 @@ public class PlayerController : MonoBehaviour
     public void OnReciveDamage() //Solo lo maneja el server esta funcion
     {
         health--;
-        Debug.Log(clientID + " - " + health);
 
         if (health <= 0)
         {
             //TODO: El server tiene que hecharlo de la partida
-            NetDisconnection netDisconnection = new NetDisconnection(clientID);
+            NetIDMessage netDisconnection = new NetIDMessage(clientID);
             nm.Broadcast(netDisconnection.Serialize());
             nm.RemoveClient(clientID);
         }

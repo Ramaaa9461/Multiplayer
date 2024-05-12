@@ -5,10 +5,9 @@ enum States { Init, Lobby, Game, Finish };
 
 public class ServerGameplay : MonoBehaviour
 {
-
     int minutesInLobby = 120; // 2 minutos
     float minutesGameplay = 180; //3 minutos
-    float timeUntilCloseServer = 2;
+    float timeUntilCloseServer = 5;
 
     int minPlayerToInitCounter = 2;
 
@@ -121,6 +120,8 @@ public class ServerGameplay : MonoBehaviour
 
                     if (counter >= minutesGameplay)
                     {
+                        SendMatchWinner();
+
                         gm.timer.text = "";
                         currentState = States.Finish;
                     }
@@ -163,7 +164,7 @@ public class ServerGameplay : MonoBehaviour
 
     void SetGameplayTimer()
     {
-       clientGameplayTimer = true;
+        clientGameplayTimer = true;
         counter = 0;
     }
 
@@ -173,5 +174,25 @@ public class ServerGameplay : MonoBehaviour
         clientLobbyTimer = init;
     }
 
+    void SendMatchWinner()
+    {
+        PlayerController playerWithMaxHealth = null;
+        int maxHealth = int.MinValue;
 
+        foreach (int index in gm.playerList.Keys)
+        {
+            if (gm.playerList[index].TryGetComponent(out PlayerController pc))
+            {
+                if (pc.health > maxHealth)
+                {
+                    maxHealth = pc.health;
+                    playerWithMaxHealth = pc;
+                }
+            }
+        }
+
+        NetIDMessage netIDMessage = new NetIDMessage(playerWithMaxHealth.clientID);
+        netIDMessage.SetMessageType(MessageType.Winner);
+        nm.Broadcast(netIDMessage.Serialize());
+    }
 }

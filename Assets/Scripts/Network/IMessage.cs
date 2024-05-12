@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor.VersionControl;
 using UnityEngine;
 
 // ctrl R G  -- ctrl shift V -- shitf enter
@@ -9,8 +8,8 @@ using UnityEngine;
 public enum MessagePriority
 {
     Default = 0,
-    Order = 1,
-
+    Sorteable = 1,
+    Disposable = 2
 }
 
 public enum MessageType
@@ -25,13 +24,11 @@ public enum MessageType
     Disconnection = 3,
     UpdateLobbyTimer = 4,
     UpdateGameplayTimer = 5,
-    WinCondition = 6
+    Winner = 6
 };
 
 public interface IMessage<T>
 {
-    public const int _INT = sizeof(int);
-
     public MessageType GetMessageType();
     public byte[] Serialize(); //Hay que poner el Checksum siempre como ultimo parametro
     public T Deserialize(byte[] message);
@@ -285,18 +282,20 @@ public class NetPing
     }
 }
 
-public class NetDisconnection : IMessage<int>
+public class NetIDMessage : IMessage<int>
 {
-    int clientToDisconect;
+    int clientID;
 
-    public NetDisconnection(int clientToDisconect)
+    MessageType currentMessageType = MessageType.Disconnection;
+
+    public NetIDMessage(int clientID)
     {
-        this.clientToDisconect = clientToDisconect;
+        this.clientID = clientID;
     }
 
-    public NetDisconnection(byte[] data)
+    public NetIDMessage(byte[] data)
     {
-        this.clientToDisconect = Deserialize(data);
+        this.clientID = Deserialize(data);
     }
 
     public int Deserialize(byte[] message)
@@ -304,14 +303,19 @@ public class NetDisconnection : IMessage<int>
         return BitConverter.ToInt32(message, sizeof(int));
     }
 
+    public void SetMessageType(MessageType newMessageType)
+    {
+        currentMessageType = newMessageType;
+    }
+
     public MessageType GetMessageType()
     {
-        return MessageType.Disconnection;
+        return currentMessageType;
     }
 
     public int GetData()
     {
-        return clientToDisconect;
+        return clientID;
     }
 
     public byte[] Serialize()
@@ -319,7 +323,7 @@ public class NetDisconnection : IMessage<int>
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(BitConverter.GetBytes(clientToDisconect));
+        outData.AddRange(BitConverter.GetBytes(clientID));
 
         return outData.ToArray();
     }

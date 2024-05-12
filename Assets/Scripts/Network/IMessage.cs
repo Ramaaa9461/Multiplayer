@@ -4,6 +4,7 @@ using UnityEngine;
 
 // ctrl R G  -- ctrl shift V -- shitf enter
 
+
 [Flags]
 public enum MessagePriority
 {
@@ -90,6 +91,7 @@ public class NetVector3 : IMessage<(int, Vector3)>
 {
     private (int id, Vector3 position) data;
 
+    MessagePriority messagePriority = MessagePriority.Default;
     MessageType currentMessageType = MessageType.Position;
 
     public NetVector3((int, Vector3) data)

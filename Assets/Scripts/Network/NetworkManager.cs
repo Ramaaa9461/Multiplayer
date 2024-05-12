@@ -275,6 +275,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 NetworkScreen.Instance.SwitchToMenuScreen();
                 NetworkScreen.Instance.ShowWinPanel(winText);
 
+                gm.EndMatch();
+
                 break;
 
             default:

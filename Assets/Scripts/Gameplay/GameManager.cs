@@ -102,4 +102,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             }
         }
     }
+
+    public void EndMatch()
+    {
+        timer.text = "";
+    }
 }

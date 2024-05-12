@@ -5,7 +5,7 @@ enum States { Init, Lobby, Game, Finish };
 
 public class ServerGameplay : MonoBehaviour
 {
-    int minutesInLobby = 120; // 2 minutos
+    int minutesInLobby = 1; // 2 minutos
     float minutesGameplay = 180; //3 minutos
     float timeUntilCloseServer = 5;
 
@@ -167,7 +167,6 @@ public class ServerGameplay : MonoBehaviour
         clientGameplayTimer = true;
         counter = 0;
     }
-
 
     void SetLobbyTimer(bool init)
     {

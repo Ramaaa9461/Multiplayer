@@ -64,6 +64,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     int maxPlayersPerServer = 4;
     public bool matchOnGoing = false;
 
+    public Queue< byte[]> clientConsoleMessage = new();
+    public Dictionary<int, Queue<byte[]>> serverConsoleMessage = new();
+    float resendPackageCounter = 0;
+
     private void Start()
     {
         gm = GameManager.Instance;
@@ -167,7 +171,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 else
                 {
                     checkActivity.ReciveServerToClientPingMessage();
-                    checkActivity.CalculateLatencyFromServer(); 
+                    checkActivity.CalculateLatencyFromServer();
                 }
 
                 break;
@@ -281,6 +285,12 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 break;
 
+            case MessageType.Confirm:
+
+                clientConsoleMessage.Dequeue();
+                resendPackageCounter = 0;
+                Debug.Log("Se borro el primer elemeto");
+                break;
             default:
                 break;
         }
@@ -317,6 +327,27 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             if (checkActivity != null)
             {
                 checkActivity.UpdateCheckActivity();
+            }
+
+            ResendPackage();
+        }
+    }
+
+    void ResendPackage()
+    {
+        if (clientConsoleMessage.Count > 0)
+        {
+            resendPackageCounter += Time.deltaTime;
+
+
+            if (!isServer)
+            {
+                if (resendPackageCounter >= checkActivity.GetLatencyFormServer() * 5 )
+                {
+                    Debug.Log("Se envio el packete de nuevo");
+                    SendToServer(clientConsoleMessage.Peek());
+                    resendPackageCounter = 0;
+                }
             }
         }
     }

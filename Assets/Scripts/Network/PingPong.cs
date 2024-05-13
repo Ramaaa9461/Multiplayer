@@ -128,4 +128,18 @@ public class PingPong
         latencyFromClients[clientID] = (float)newDateTime.TotalMilliseconds;
       //Debug.Log("Latency from client " + clientID + " - " + latencyFromClients[clientID] /1000);
     }
+
+    public float GetLatencyFormClient(int clientId)
+    {
+        if (latencyFromClients.ContainsKey(clientId))
+        {
+            return latencyFromClients[clientId];
+        }
+
+        return -1;
+    }
+    public float GetLatencyFormServer()
+    {
+        return latencyFromServer;
+    }
 }

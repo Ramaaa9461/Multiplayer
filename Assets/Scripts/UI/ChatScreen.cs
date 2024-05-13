@@ -23,6 +23,7 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
             {
                 NetMessage netMessage = new NetMessage(str.ToCharArray());
 
+                NetworkManager.Instance.clientConsoleMessage.Enqueue(netMessage.Serialize());
                 NetworkManager.Instance.Broadcast(netMessage.Serialize());
                 messages.text += str + System.Environment.NewLine;
             }
@@ -30,6 +31,7 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
             {
                 NetMessage netMessage = new NetMessage(str.ToCharArray());
 
+                NetworkManager.Instance.clientConsoleMessage.Enqueue(netMessage.Serialize());
                 NetworkManager.Instance.SendToServer(netMessage.Serialize());
             }
 

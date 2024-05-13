@@ -10,11 +10,12 @@ public enum MessagePriority
 {
     Default = 0,
     Sorteable = 1,
-    Disposable = 2
+    NonDisposable = 2
 }
 
 public enum MessageType
 {
+    Confirm = -5,
     Error = -4,
     Ping = -3,
     ServerToClientHandShake = -2,
@@ -104,7 +105,7 @@ public class NetVector3 : IMessage<(int, Vector3)>
         this.data = Deserialize(data);
     }
 
-  public (int id, Vector3 position) GetData()
+    public (int id, Vector3 position) GetData()
     {
         return data;
     }
@@ -139,7 +140,7 @@ public class NetVector3 : IMessage<(int, Vector3)>
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
         outData.AddRange(BitConverter.GetBytes(data.id));
-        
+
         outData.AddRange(BitConverter.GetBytes(data.position.x));
         outData.AddRange(BitConverter.GetBytes(data.position.y));
         outData.AddRange(BitConverter.GetBytes(data.position.z));
@@ -210,7 +211,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
             outData.AddRange(BitConverter.GetBytes(clientInfo.clientID)); // ID del client
             outData.AddRange(MessageChecker.SerializeString(clientInfo.clientName.ToCharArray())); //Nombre
         }
-        
+
         return outData.ToArray();
     }
 }
@@ -219,6 +220,7 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
 public class NetMessage : IMessage<char[]>
 {
     char[] data;
+    MessagePriority messagePriority = MessagePriority.NonDisposable;
 
     public NetMessage(char[] data)
     {
@@ -239,9 +241,22 @@ public class NetMessage : IMessage<char[]>
     {
         string text = "";
 
+        messagePriority = (MessagePriority)BitConverter.ToInt32(message, 4);
+
+        if ((messagePriority & MessagePriority.Sorteable) != 0)
+        {
+            Debug.Log("La flag Sorteable está activa.");
+        }
+        if ((messagePriority & MessagePriority.NonDisposable) != 0)
+        {
+            NetPing netPing = new();
+            netPing.SetMessageType(MessageType.Confirm);
+            NetworkManager.Instance.Broadcast(netPing.Serialize());
+        }
+
         if (MessageChecker.DeserializeCheckSum(message))
         {
-            text = MessageChecker.DeserializeString(message, sizeof(int));
+            text = MessageChecker.DeserializeString(message, sizeof(int) * 2);
         }
 
         return text.ToCharArray();
@@ -258,6 +273,8 @@ public class NetMessage : IMessage<char[]>
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
 
+        outData.AddRange(BitConverter.GetBytes((int)messagePriority));
+
         outData.AddRange(MessageChecker.SerializeString(data));
 
         outData.AddRange(MessageChecker.SerializeCheckSum(outData));
@@ -268,10 +285,15 @@ public class NetMessage : IMessage<char[]>
 
 public class NetPing
 {
+    MessageType messageType = MessageType.Ping;
 
+    public void SetMessageType(MessageType messageType)
+    {
+        this.messageType = messageType;
+    }
     public MessageType GetMessageType()
     {
-        return MessageType.Ping;
+        return messageType;
     }
 
     public byte[] Serialize()

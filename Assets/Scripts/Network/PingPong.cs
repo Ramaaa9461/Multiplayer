@@ -12,7 +12,10 @@ public class PingPong
     float sendMessageCounter = 0;
     float secondsPerCheck = 1.0f;
 
-    DateTime currentDateTime = DateTime.UtcNow;
+
+    private Dictionary<int, float> latencyFromClients = new Dictionary<int, float>(); //Lo usa el Server
+    float latencyFromServer = 0;
+    DateTime currentDateTime;
 
     public PingPong() //Tenemos qe calcular la latencia
     {
@@ -50,9 +53,6 @@ public class PingPong
 
             CheckActivityCounter();
             CheckTimeUntilDisconection();
-        
-
-
     }
 
     void CheckActivityCounter()
@@ -111,5 +111,21 @@ public class PingPong
         {
             NetworkManager.Instance.SendToServer(netPing.Serialize());
         }
+
+        currentDateTime = DateTime.UtcNow;
+    }
+
+    public void CalculateLatencyFromServer()
+    {
+        TimeSpan newDateTime = DateTime.UtcNow - currentDateTime;
+        latencyFromServer = (float)newDateTime.Milliseconds;
+      //Debug.Log("Latency from Server " + latencyFromServer / 1000);
+    }
+
+    public void CalculateLatencyFromClients(int clientID)
+    {
+        TimeSpan newDateTime = DateTime.UtcNow - currentDateTime;
+        latencyFromClients[clientID] = (float)newDateTime.TotalMilliseconds;
+      //Debug.Log("Latency from client " + clientID + " - " + latencyFromClients[clientID] /1000);
     }
 }

@@ -36,6 +36,78 @@ public interface IMessage<T>
     public T Deserialize(byte[] message);
 }
 
+public abstract class BaseMessage<T> : IMessage<T>
+{
+    protected int messageHeaderSize = sizeof(int);
+
+    protected MessagePriority currentMessagePriority;
+    protected MessageType currentMessageType;
+    protected int messageOrder = 0;
+
+    #region Properties
+
+    public MessagePriority CurrentMessagePriority
+    {
+        get { return currentMessagePriority; }
+        set { currentMessagePriority = value; }
+    }
+
+    public MessageType CurrentMessageType
+    {
+        get { return currentMessageType; }
+        set { currentMessageType = value; }
+    }
+
+    public int MessageOrder
+    {
+        get { return messageOrder; }
+        set { messageOrder = value; }
+    }
+
+    public bool IsSorteableMessage
+    {
+        get { return ((currentMessagePriority & MessagePriority.Sorteable) != 0) }
+    }
+
+    public bool IsNondisponsableMessage
+    {
+        get { return ((currentMessagePriority & MessagePriority.NonDisposable) != 0) }
+    }
+
+    #endregion
+
+    public BaseMessage(MessagePriority messagePriority)
+    {
+        currentMessagePriority = messagePriority;
+    }
+
+    public abstract MessageType GetMessageType();
+    public byte[] SerializeHeader()
+    {
+        List<byte> outData = new();
+
+        outData.AddRange(BitConverter.GetBytes((int)currentMessageType));
+        outData.AddRange(BitConverter.GetBytes((int)currentMessagePriority));
+
+        if (IsSorteableMessage)
+        {
+            outData.AddRange(BitConverter.GetBytes(messageOrder));
+            messageHeaderSize += sizeof(int);
+        }
+
+        if (IsNondisponsableMessage)
+        {
+
+        }
+
+        return outData.ToArray();
+    }
+
+    public abstract byte[] Serialize();
+    public abstract T Deserialize(byte[] message);
+
+}
+
 public class ClientToServerNetHandShake : IMessage<(long, int, string)>
 {
     (long ip, int port, string name) data;

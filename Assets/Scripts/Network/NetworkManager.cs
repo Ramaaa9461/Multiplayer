@@ -45,6 +45,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         get; private set;
     }
+
     public int TimeOut = 30;
 
     private UdpConnection connection;

@@ -17,7 +17,7 @@ public class PingPong
     float latencyFromServer = 0;
     DateTime currentDateTime;
 
-    public PingPong() //Tenemos qe calcular la latencia
+    public PingPong() 
     {
     }
 

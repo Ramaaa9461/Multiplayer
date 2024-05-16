@@ -61,8 +61,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     public int actualClientId = -1; // Es el ID de ESTE cliente (no aplica al server)
 
     GameManager gm;
-    PingPong checkActivity;
+    public PingPong checkActivity;
+
     SorteableMessages sorteableMessages;
+    NondisponsablesMessages nondisponblesMessages;
 
 
     int maxPlayersPerServer = 4;
@@ -72,6 +74,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         gm = GameManager.Instance;
         sorteableMessages = new();
+        nondisponblesMessages = new();
     }
 
     public void StartServer(int port)
@@ -131,11 +134,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void RemoveClient(int idToRemove)
     {
-        gm.OnRemovePlayer?.Invoke(idToRemove);
 
         if (clients.ContainsKey(idToRemove))
         {
             Debug.Log("Removing client: " + idToRemove);
+        gm.OnRemovePlayer?.Invoke(idToRemove);
 
             checkActivity.RemoveClientForList(idToRemove);
 
@@ -244,7 +247,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                     BroadcastPlayerPosition(netBullet.GetData().id, data);
                 }
 
-
                 break;
             case MessageType.Disconnection:
 
@@ -302,9 +304,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 break;
 
-            case MessageType.Confirm:
-
-                break;
             default:
                 break;
         }
@@ -312,11 +311,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void SendToServer(byte[] data)
     {
+        nondisponblesMessages.AddSentMessagesFromClients(data);
         connection.Send(data);
     }
 
     public void Broadcast(byte[] data, IPEndPoint ip)
     {
+        if (ipToId.ContainsKey(ip))
+        {
+            nondisponblesMessages.AddSentMessagesFromServer(data, ipToId[ip]);
+        }
         connection.Send(data, ip);
     }
 
@@ -326,6 +330,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         {
             while (iterator.MoveNext())
             {
+                nondisponblesMessages.AddSentMessagesFromServer(data, iterator.Current.Value.id);
                 connection.Send(data, iterator.Current.Value.ipEndPoint);
             }
         }
@@ -341,6 +346,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             if (checkActivity != null)
             {
                 checkActivity.UpdateCheckActivity();
+            }
+
+            if (nondisponblesMessages != null)
+            {
+                nondisponblesMessages.ResendPackages();
             }
 
         }

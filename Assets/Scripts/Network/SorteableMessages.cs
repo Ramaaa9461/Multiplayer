@@ -29,7 +29,6 @@ public class SorteableMessages
     void OnRecievedData(byte[] data, IPEndPoint ip)
     {
         MessagePriority messagePriority = MessageChecker.CheckMessagePriority(data);
-        Debug.Log(messagePriority);
 
         if ((messagePriority & MessagePriority.Sorteable) != 0)
         {
@@ -37,7 +36,8 @@ public class SorteableMessages
 
             if (nm.isServer)
             {
-                if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))
+                Debug.Log(nm.ipToId[ip]);
+                if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))   
                 {
                     if (!OrderLastMessageReciveFromClients[nm.ipToId[ip]].ContainsKey(messageType))
                     {
@@ -71,7 +71,7 @@ public class SorteableMessages
             OrderLastMessageReciveFromClients[clientID].Add(messageType, 0);
         }
 
-        Debug.Log(OrderLastMessageReciveFromClients[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder));
+       // Debug.Log(OrderLastMessageReciveFromClients[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder));
         return OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder;
     }
 
@@ -82,7 +82,7 @@ public class SorteableMessages
             OrderLastMessageReciveFromServer.Add(messageType, 0);
         }
 
-        Debug.Log(OrderLastMessageReciveFromServer[messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[messageType] < messageOrder));
+       // Debug.Log(OrderLastMessageReciveFromServer[messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[messageType] < messageOrder));
         return OrderLastMessageReciveFromServer[messageType] < messageOrder;
     }
 

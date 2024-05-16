@@ -67,8 +67,8 @@ public class ServerGameplay : MonoBehaviour
 
                         if (initLobby)
                         {
-                            NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(true);
-                            netUpdateLobbyTimer.SetMessageType(MessageType.UpdateLobbyTimer);
+                            NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(MessagePriority.NonDisposable, true);
+                            netUpdateLobbyTimer.CurrentMessageType  = MessageType.UpdateLobbyTimer;
                             nm.Broadcast(netUpdateLobbyTimer.Serialize());
                             initLobby = false;
                         }
@@ -88,8 +88,8 @@ public class ServerGameplay : MonoBehaviour
                     {
                         if (counterInit)
                         {
-                            NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(false);
-                            netUpdateLobbyTimer.SetMessageType(MessageType.UpdateLobbyTimer);
+                            NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(MessagePriority.NonDisposable, false);
+                            netUpdateLobbyTimer.CurrentMessageType = MessageType.UpdateLobbyTimer;
                             nm.Broadcast(netUpdateLobbyTimer.Serialize());
 
                             counterInit = false;
@@ -108,8 +108,8 @@ public class ServerGameplay : MonoBehaviour
 
                     if (initGameplay)
                     {
-                        NetUpdateTimer netUpdateGameplayTimer = new NetUpdateTimer(true);
-                        netUpdateGameplayTimer.SetMessageType(MessageType.UpdateGameplayTimer);
+                        NetUpdateTimer netUpdateGameplayTimer = new NetUpdateTimer(MessagePriority.NonDisposable, true);
+                        netUpdateGameplayTimer.CurrentMessageType = MessageType.UpdateGameplayTimer;
                         nm.Broadcast(netUpdateGameplayTimer.Serialize());
 
                         initGameplay = false;
@@ -170,6 +170,7 @@ public class ServerGameplay : MonoBehaviour
 
     void SetLobbyTimer(bool init)
     {
+        gm.timer.text = "";
         clientLobbyTimer = init;
     }
 

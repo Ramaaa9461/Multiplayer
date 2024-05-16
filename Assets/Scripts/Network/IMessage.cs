@@ -428,33 +428,32 @@ public class NetIDMessage : BaseMessage<int>
     }
 }
 
-public class NetErrorMessage : IMessage<string>
+public class NetErrorMessage : BaseMessage<string>
 {
     string error;
 
-    public NetErrorMessage(string error)
+    public NetErrorMessage(string error) : base(MessagePriority.Default) //Simepre van a ser default, lo dejo implicito aca desde el principio
     {
+        currentMessageType = MessageType.Error;
         this.error = error;
     }
-    public NetErrorMessage(byte[] message)
+
+    public NetErrorMessage(byte[] message) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.Error;
         error = Deserialize(message);
     }
 
-    public string Deserialize(byte[] message)
+    public override string Deserialize(byte[] message)
     {
+        DeserializeHeader(message);
 
         if (MessageChecker.DeserializeCheckSum(message))
         {
-            error = MessageChecker.DeserializeString(message, sizeof(int));
+            error = MessageChecker.DeserializeString(message, messageHeaderSize);
         }
 
         return error;
-    }
-
-    public MessageType GetMessageType()
-    {
-        return MessageType.Error;
     }
 
     public string GetData()
@@ -462,64 +461,62 @@ public class NetErrorMessage : IMessage<string>
         return error;
     }
 
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(MessageChecker.SerializeString(error.ToCharArray()));
-        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
+        SerializeHeader(ref outData);
 
+        outData.AddRange(MessageChecker.SerializeString(error.ToCharArray()));
+
+        SerializeQueue(ref outData);
+    
         return outData.ToArray();
     }
 }
 
-public class NetUpdateTimer : IMessage<bool>
+public class NetUpdateTimer : BaseMessage<bool>
 {
     bool initTimer;
-    MessageType currentMessageType = MessageType.UpdateLobbyTimer;
 
-    public NetUpdateTimer(bool initTimer)
+    public NetUpdateTimer(MessagePriority messagePriority, bool initTimer) : base(messagePriority)
     {
+        currentMessageType = MessageType.UpdateLobbyTimer;
         this.initTimer = initTimer;
     }
 
-    public NetUpdateTimer(byte[] data)
+    public NetUpdateTimer(byte[] data) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.UpdateLobbyTimer;
         this.initTimer = Deserialize(data);
     }
 
-    public bool Deserialize(byte[] message)
-    {
-        if (MessageChecker.DeserializeCheckSum(message))
-        {
-            return BitConverter.ToBoolean(message, sizeof(int));
-        }
-
-        return false;
-    }
     public bool GetData()
     {
         return initTimer;
     }
 
-    public void SetMessageType(MessageType type)
+    public override bool Deserialize(byte[] message)
     {
-        currentMessageType = type;
+        DeserializeHeader(message);
+
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            return BitConverter.ToBoolean(message, messageHeaderSize);
+        }
+
+        return false;
     }
 
-    public MessageType GetMessageType()
-    {
-        return currentMessageType;
-    }
-
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        SerializeHeader(ref outData);
+
         outData.AddRange(BitConverter.GetBytes(initTimer));
-        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
+
+        SerializeQueue(ref outData);
 
         return outData.ToArray();
     }

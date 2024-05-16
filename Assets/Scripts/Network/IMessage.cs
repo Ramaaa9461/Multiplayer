@@ -31,14 +31,13 @@ public enum MessageType
 
 public interface IMessage<T>
 {
-    public MessageType GetMessageType();
     public byte[] Serialize(); //Hay que poner el Checksum siempre como ultimo parametro
     public T Deserialize(byte[] message);
 }
 
 public abstract class BaseMessage<T> : IMessage<T>
 {
-    protected int messageHeaderSize = sizeof(int);
+    protected int messageHeaderSize = sizeof(int) * 2; //MessageType y MessagePriority
 
     protected MessagePriority currentMessagePriority;
     protected MessageType currentMessageType;
@@ -66,12 +65,12 @@ public abstract class BaseMessage<T> : IMessage<T>
 
     public bool IsSorteableMessage
     {
-        get { return ((currentMessagePriority & MessagePriority.Sorteable) != 0) }
+        get { return ((currentMessagePriority & MessagePriority.Sorteable) != 0); }
     }
 
     public bool IsNondisponsableMessage
     {
-        get { return ((currentMessagePriority & MessagePriority.NonDisposable) != 0) }
+        get { return ((currentMessagePriority & MessagePriority.NonDisposable) != 0); }
     }
 
     #endregion
@@ -81,7 +80,23 @@ public abstract class BaseMessage<T> : IMessage<T>
         currentMessagePriority = messagePriority;
     }
 
-    public abstract MessageType GetMessageType();
+    public void DeserializeHeader(byte[] message)
+    {
+        currentMessageType = (MessageType)BitConverter.ToInt32(message, 0);
+        currentMessagePriority = (MessagePriority)BitConverter.ToInt32(message, sizeof(int));
+
+        if (IsSorteableMessage)
+        {
+            messageOrder = BitConverter.ToInt32(message, sizeof(int) * 2);
+            messageHeaderSize += sizeof(int);
+        }
+
+        if (IsNondisponsableMessage)
+        {
+            //TODO: Mando mensaje de confirmacion
+        }
+    }
+
     public byte[] SerializeHeader()
     {
         List<byte> outData = new();
@@ -97,13 +112,19 @@ public abstract class BaseMessage<T> : IMessage<T>
 
         if (IsNondisponsableMessage)
         {
-
+            //Creo que no hay que serializar nada, lo dejo por las dudas
         }
 
         return outData.ToArray();
     }
 
+    public void SerializeQueue(ref List<byte> data)
+    {
+        data.AddRange(MessageChecker.SerializeCheckSum(data));
+    }
+
     public abstract byte[] Serialize();
+
     public abstract T Deserialize(byte[] message);
 
 }
@@ -289,19 +310,20 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
 }
 
 [Serializable]
-public class NetMessage : IMessage<char[]>
+public class NetMessage : BaseMessage<char[]>
 {
     char[] data;
-    MessagePriority messagePriority = MessagePriority.NonDisposable;
 
-    public NetMessage(char[] data)
+    public NetMessage(MessagePriority priority, char[] data) : base(priority)
     {
         this.data = data;
+        currentMessageType = MessageType.Console;
     }
 
-    public NetMessage(byte[] data)
+    public NetMessage(byte[] data) : base(MessagePriority.Default) //Se actualiza en el Deserialize esto
     {
         this.data = Deserialize(data);
+        currentMessageType = MessageType.Console;
     }
 
     public char[] GetData()
@@ -309,47 +331,31 @@ public class NetMessage : IMessage<char[]>
         return data;
     }
 
-    public char[] Deserialize(byte[] message)
+    public override char[] Deserialize(byte[] message)
     {
         string text = "";
 
-        messagePriority = (MessagePriority)BitConverter.ToInt32(message, 4);
-
-        if ((messagePriority & MessagePriority.Sorteable) != 0)
-        {
-            Debug.Log("La flag Sorteable está activa.");
-        }
-        if ((messagePriority & MessagePriority.NonDisposable) != 0)
-        {
-            NetPing netPing = new();
-            netPing.SetMessageType(MessageType.Confirm);
-            NetworkManager.Instance.Broadcast(netPing.Serialize());
-        }
+        DeserializeHeader(message);
 
         if (MessageChecker.DeserializeCheckSum(message))
         {
-            text = MessageChecker.DeserializeString(message, sizeof(int) * 2);
+            text = MessageChecker.DeserializeString(message, messageHeaderSize);
         }
 
         return text.ToCharArray();
     }
 
-    public MessageType GetMessageType()
-    {
-        return MessageType.Console;
-    }
-
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(SerializeHeader());
 
-        outData.AddRange(BitConverter.GetBytes((int)messagePriority));
 
         outData.AddRange(MessageChecker.SerializeString(data));
 
-        outData.AddRange(MessageChecker.SerializeCheckSum(outData));
+
+        SerializeQueue(ref outData);
 
         return outData.ToArray();
     }

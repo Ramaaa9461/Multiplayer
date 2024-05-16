@@ -97,10 +97,8 @@ public abstract class BaseMessage<T> : IMessage<T>
         }
     }
 
-    public byte[] SerializeHeader()
+    public void SerializeHeader(ref List<byte> outData)
     {
-        List<byte> outData = new();
-
         outData.AddRange(BitConverter.GetBytes((int)currentMessageType));
         outData.AddRange(BitConverter.GetBytes((int)currentMessagePriority));
 
@@ -114,8 +112,6 @@ public abstract class BaseMessage<T> : IMessage<T>
         {
             //Creo que no hay que serializar nada, lo dejo por las dudas
         }
-
-        return outData.ToArray();
     }
 
     public void SerializeQueue(ref List<byte> data)
@@ -129,36 +125,39 @@ public abstract class BaseMessage<T> : IMessage<T>
 
 }
 
-public class ClientToServerNetHandShake : IMessage<(long, int, string)>
+public class ClientToServerNetHandShake : BaseMessage<(long, int, string)>
 {
     (long ip, int port, string name) data;
 
-
-    public ClientToServerNetHandShake((long, int, string) data)
+    public ClientToServerNetHandShake(MessagePriority messagePriority, (long, int, string) data) : base(messagePriority)
     {
+        currentMessageType = MessageType.ClientToServerHandShake;
         this.data = data;
     }
 
-    public ClientToServerNetHandShake(byte[] data)
+    public ClientToServerNetHandShake(byte[] data) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.ClientToServerHandShake;
         this.data = Deserialize(data);
     }
 
-    public (long, int, string) Deserialize(byte[] message)
+    public override (long, int, string) Deserialize(byte[] message)
     {
         (long, int, string) outData = (0, 0, "");
 
-        outData.Item1 = BitConverter.ToInt64(message, 4);
-        outData.Item2 = BitConverter.ToInt32(message, 12);
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            DeserializeHeader(message);
 
-        outData.Item3 = MessageChecker.DeserializeString(message, sizeof(long) + sizeof(int) * 2);
+            outData.Item1 = BitConverter.ToInt64(message, messageHeaderSize);
+            messageHeaderSize += sizeof(long);
+            outData.Item2 = BitConverter.ToInt32(message, messageHeaderSize);
+            messageHeaderSize += sizeof(int);
+
+            outData.Item3 = MessageChecker.DeserializeString(message, messageHeaderSize);
+        }
 
         return outData;
-    }
-
-    public MessageType GetMessageType()
-    {
-        return MessageType.ClientToServerHandShake;
     }
 
     public (long, int, string) GetData()
@@ -166,35 +165,37 @@ public class ClientToServerNetHandShake : IMessage<(long, int, string)>
         return data;
     }
 
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        SerializeHeader(ref outData);
 
         outData.AddRange(BitConverter.GetBytes(data.Item1));
         outData.AddRange(BitConverter.GetBytes(data.Item2));
 
         outData.AddRange(MessageChecker.SerializeString(data.name.ToCharArray()));
 
+        SerializeQueue(ref outData);
+
         return outData.ToArray();
     }
 }
 
-public class NetVector3 : IMessage<(int, Vector3)>
+public class NetVector3 : BaseMessage<(int, Vector3)>
 {
     private (int id, Vector3 position) data;
 
-    MessagePriority messagePriority = MessagePriority.Default;
-    MessageType currentMessageType = MessageType.Position;
 
-    public NetVector3((int, Vector3) data)
+    public NetVector3(MessagePriority messagePriority, (int, Vector3) data) : base(messagePriority)
     {
+        currentMessageType = MessageType.Position;
         this.data = data;
     }
 
-    public NetVector3(byte[] data)
+    public NetVector3(byte[] data) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.Position;
         this.data = Deserialize(data);
     }
 
@@ -203,45 +204,43 @@ public class NetVector3 : IMessage<(int, Vector3)>
         return data;
     }
 
-
-    public (int, Vector3) Deserialize(byte[] message)
+    public override (int, Vector3) Deserialize(byte[] message)
     {
-        (int id, Vector3 position) outData;
+        (int id, Vector3 position) outData = (-1, Vector3.zero);
 
-        outData.id = BitConverter.ToInt32(message, 4);
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            DeserializeHeader(message);
 
-        outData.position.x = BitConverter.ToSingle(message, 8);
-        outData.position.y = BitConverter.ToSingle(message, 12);
-        outData.position.z = BitConverter.ToSingle(message, 16);
+            outData.id = BitConverter.ToInt32(message, messageHeaderSize);
+            messageHeaderSize += sizeof(int);
+
+            outData.position.x = BitConverter.ToSingle(message, messageHeaderSize);
+            messageHeaderSize += sizeof(float);
+            outData.position.y = BitConverter.ToSingle(message, messageHeaderSize);
+            messageHeaderSize += sizeof(float);
+            outData.position.z = BitConverter.ToSingle(message, messageHeaderSize);
+        }
 
         return outData;
     }
 
-    public void SetMessageType(MessageType type)
-    {
-        currentMessageType = type;
-    }
-
-    public MessageType GetMessageType()
-    {
-        return currentMessageType;
-    }
-
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        SerializeHeader(ref outData);
+
         outData.AddRange(BitConverter.GetBytes(data.id));
 
         outData.AddRange(BitConverter.GetBytes(data.position.x));
         outData.AddRange(BitConverter.GetBytes(data.position.y));
         outData.AddRange(BitConverter.GetBytes(data.position.z));
 
+        SerializeQueue(ref outData);
+
         return outData.ToArray();
     }
-
-    //Dictionary<Client,Dictionary<msgType,int>>
 }
 
 public class ServerToClientHandShake : IMessage<List<(int clientID, string clientName)>>
@@ -349,7 +348,7 @@ public class NetMessage : BaseMessage<char[]>
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(SerializeHeader());
+        SerializeHeader(ref outData);
 
 
         outData.AddRange(MessageChecker.SerializeString(data));

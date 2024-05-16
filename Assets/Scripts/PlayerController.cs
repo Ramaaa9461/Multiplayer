@@ -17,6 +17,9 @@ public class PlayerController : MonoBehaviour
     GameManager gm;
     NetworkManager nm;
 
+    static int positionMessageOrder = 0;
+    static int bulletsMessageOrder = 0;
+
     private void Awake()
     {
         cc = transform.GetComponent<CharacterController>();
@@ -66,8 +69,10 @@ public class PlayerController : MonoBehaviour
                 GameObject bullet = Instantiate(bulletPrefab, transform.position + direction, Quaternion.identity);
                 bullet.GetComponent<BulletController>().SetDirection(direction, clientID);
 
-                NetVector3 netBullet = new NetVector3((nm.actualClientId, direction));
-                netBullet.SetMessageType(MessageType.BulletInstatiate);
+                bulletsMessageOrder++;
+                NetVector3 netBullet = new NetVector3(MessagePriority.Sorteable, (nm.actualClientId, direction));
+                netBullet.CurrentMessageType = MessageType.BulletInstatiate;
+                netBullet.MessageOrder = bulletsMessageOrder;
                 nm.SendToServer(netBullet.Serialize());
 
                 canShoot = false;
@@ -78,7 +83,9 @@ public class PlayerController : MonoBehaviour
 
     void SendPosition()
     {
-        NetVector3 netVector3 = new NetVector3((nm.actualClientId, transform.position));
+        positionMessageOrder++;
+        NetVector3 netVector3 = new NetVector3(MessagePriority.NonDisposable, (nm.actualClientId, transform.position));
+        netVector3.MessageOrder = positionMessageOrder;
         NetworkManager.Instance.SendToServer(netVector3.Serialize());
     }
 

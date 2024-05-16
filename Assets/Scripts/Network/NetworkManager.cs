@@ -95,7 +95,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         connection = new UdpConnection(ip, port, this);
         checkActivity = new PingPong();
 
-        ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake((UdpConnection.IPToLong(ip), port, name));
+        ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake(MessagePriority.NonDisposable, (UdpConnection.IPToLong(ip), port, name));
         SendToServer(handShakeMesage.Serialize());
     }
 

@@ -34,6 +34,7 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
             {
                 NetworkManager.Instance.SendToServer(netMessage.Serialize());
             }
+
             NetworkManager.Instance.clientConsoleMessage.Enqueue(netMessage.Serialize());
 
             inputMessage.ActivateInputField();

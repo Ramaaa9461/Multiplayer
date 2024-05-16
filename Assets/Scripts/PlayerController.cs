@@ -107,7 +107,7 @@ public class PlayerController : MonoBehaviour
         if (health <= 0)
         {
             //TODO: El server tiene que hecharlo de la partida
-            NetIDMessage netDisconnection = new NetIDMessage(clientID);
+            NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientID);
             nm.Broadcast(netDisconnection.Serialize());
             nm.RemoveClient(clientID);
         }

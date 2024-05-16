@@ -190,8 +190,8 @@ public class ServerGameplay : MonoBehaviour
             }
         }
 
-        NetIDMessage netIDMessage = new NetIDMessage(playerWithMaxHealth.clientID);
-        netIDMessage.SetMessageType(MessageType.Winner);
+        NetIDMessage netIDMessage = new NetIDMessage(MessagePriority.Default, playerWithMaxHealth.clientID);
+        netIDMessage.CurrentMessageType = MessageType.Winner;
         nm.Broadcast(netIDMessage.Serialize());
     }
 }

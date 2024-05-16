@@ -243,18 +243,21 @@ public class NetVector3 : BaseMessage<(int, Vector3)>
     }
 }
 
-public class ServerToClientHandShake : IMessage<List<(int clientID, string clientName)>>
+public class ServerToClientHandShake : BaseMessage<List<(int clientID, string clientName)>>
 {
 
     private List<(int clientID, string clientName)> data;
 
-    public ServerToClientHandShake(List<(int clientID, string clientName)> data)
+    public ServerToClientHandShake(MessagePriority messagePriority, List<(int clientID, string clientName)> data) : base(messagePriority)
     {
+        currentMessageType = MessageType.ServerToClientHandShake;
         this.data = data;
+
     }
 
-    public ServerToClientHandShake(byte[] data)
+    public ServerToClientHandShake(byte[] data) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.ServerToClientHandShake;
         this.data = Deserialize(data);
     }
 
@@ -263,38 +266,36 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
         return data;
     }
 
-    public List<(int clientID, string clientName)> Deserialize(byte[] message)
+    public override List<(int clientID, string clientName)> Deserialize(byte[] message)
     {
         List<(int clientID, string clientName)> outData = new List<(int, string)>();
 
-        int listCount = BitConverter.ToInt32(message, sizeof(int));
-
-        int offSet = sizeof(int) * 2;
-        for (int i = 0; i < listCount; i++)
+        if (MessageChecker.DeserializeCheckSum(message))
         {
-            int clientID = BitConverter.ToInt32(message, offSet);
-            offSet += sizeof(int);
-            int clientNameLength = BitConverter.ToInt32(message, offSet);
-            string name = MessageChecker.DeserializeString(message, offSet);
-            offSet += sizeof(char) * clientNameLength + sizeof(int);
+            DeserializeHeader(message);
 
-            outData.Add((clientID, name));
+            int listCount = BitConverter.ToInt32(message, messageHeaderSize);
+
+            int offSet = messageHeaderSize + sizeof(int);
+            for (int i = 0; i < listCount; i++)
+            {
+                int clientID = BitConverter.ToInt32(message, offSet);
+                offSet += sizeof(int);
+                int clientNameLength = BitConverter.ToInt32(message, offSet);
+                string name = MessageChecker.DeserializeString(message, offSet);
+                offSet += sizeof(char) * clientNameLength + sizeof(int);
+
+                outData.Add((clientID, name));
+            }
         }
-
         return outData;
     }
 
-
-    public MessageType GetMessageType()
-    {
-        return MessageType.ServerToClientHandShake;
-    }
-
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        SerializeHeader(ref outData);
 
         outData.AddRange(BitConverter.GetBytes(data.Count));
 
@@ -303,6 +304,8 @@ public class ServerToClientHandShake : IMessage<List<(int clientID, string clien
             outData.AddRange(BitConverter.GetBytes(clientInfo.clientID)); // ID del client
             outData.AddRange(MessageChecker.SerializeString(clientInfo.clientName.ToCharArray())); //Nombre
         }
+
+        SerializeQueue(ref outData);
 
         return outData.ToArray();
     }
@@ -383,35 +386,27 @@ public class NetPing
     }
 }
 
-public class NetIDMessage : IMessage<int>
+public class NetIDMessage : BaseMessage<int>
 {
     int clientID;
 
-    MessageType currentMessageType = MessageType.Disconnection;
-
-    public NetIDMessage(int clientID)
+    public NetIDMessage(MessagePriority messagePriority, int clientID) : base(messagePriority)
     {
+        currentMessageType = MessageType.Disconnection;
         this.clientID = clientID;
     }
 
-    public NetIDMessage(byte[] data)
+    public NetIDMessage(byte[] data) : base(MessagePriority.Default)
     {
+        currentMessageType = MessageType.Disconnection;
         this.clientID = Deserialize(data);
     }
 
-    public int Deserialize(byte[] message)
+    public override int Deserialize(byte[] message)
     {
-        return BitConverter.ToInt32(message, sizeof(int));
-    }
+        DeserializeHeader(message);
 
-    public void SetMessageType(MessageType newMessageType)
-    {
-        currentMessageType = newMessageType;
-    }
-
-    public MessageType GetMessageType()
-    {
-        return currentMessageType;
+        return BitConverter.ToInt32(message, messageHeaderSize);
     }
 
     public int GetData()
@@ -419,12 +414,15 @@ public class NetIDMessage : IMessage<int>
         return clientID;
     }
 
-    public byte[] Serialize()
+    public override byte[] Serialize()
     {
         List<byte> outData = new List<byte>();
 
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        SerializeHeader(ref outData);
+
         outData.AddRange(BitConverter.GetBytes(clientID));
+
+        SerializeQueue(ref outData);
 
         return outData.ToArray();
     }

@@ -120,7 +120,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                     playersInServer.Add((clients[id].id, clients[id].clientName));
                 }
 
-                ServerToClientHandShake serverToClient = new ServerToClientHandShake(playersInServer);
+                ServerToClientHandShake serverToClient = new ServerToClientHandShake(MessagePriority.NonDisposable, playersInServer);
                 Broadcast(serverToClient.Serialize());
             }
         }
@@ -423,12 +423,13 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         if (!isServer)
         {
-            NetIDMessage netDisconnection = new NetIDMessage(actualClientId);
+            NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, actualClientId);
             SendToServer(netDisconnection.Serialize());
         }
         else
         {
             NetErrorMessage netErrorMessage = new NetErrorMessage("Lost Connection To Server");
+            SendToServer(netErrorMessage.Serialize());
             CloseServer();
         }
     }
@@ -440,7 +441,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             List<int> clientIdsToRemove = new List<int>(clients.Keys);
             foreach (int clientId in clientIdsToRemove)
             {
-                NetIDMessage netDisconnection = new NetIDMessage(clientId);
+                NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientId);
                 Broadcast(netDisconnection.Serialize());
                 RemoveClient(clientId);
             }

@@ -82,7 +82,7 @@ public class PingPong
                 {
                     NetworkManager.Instance.RemoveClient(clientID);
 
-                    NetIDMessage netDisconnection = new NetIDMessage(clientID);
+                    NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientID);
                     NetworkManager.Instance.Broadcast(netDisconnection.Serialize());
                 }
             }
@@ -91,7 +91,7 @@ public class PingPong
         {
             if (lastMessageReceivedFromServer > timeUntilDisconnection)
             {
-                NetIDMessage netDisconnection = new NetIDMessage(NetworkManager.Instance.actualClientId);
+                NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, NetworkManager.Instance.actualClientId);
                 NetworkManager.Instance.SendToServer(netDisconnection.Serialize());
 
                 NetworkManager.Instance.DisconectPlayer();

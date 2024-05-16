@@ -4,7 +4,6 @@ using UnityEngine;
 
 // ctrl R G  -- ctrl shift V -- shitf enter
 
-
 [Flags]
 public enum MessagePriority
 {
@@ -185,8 +184,7 @@ public class ClientToServerNetHandShake : BaseMessage<(long, int, string)>
 public class NetVector3 : BaseMessage<(int, Vector3)>
 {
     private (int id, Vector3 position) data;
-
-
+    
     public NetVector3(MessagePriority messagePriority, (int, Vector3) data) : base(messagePriority)
     {
         currentMessageType = MessageType.Position;
@@ -318,14 +316,14 @@ public class NetMessage : BaseMessage<char[]>
 
     public NetMessage(MessagePriority priority, char[] data) : base(priority)
     {
-        this.data = data;
         currentMessageType = MessageType.Console;
+        this.data = data;
     }
 
     public NetMessage(byte[] data) : base(MessagePriority.Default) //Se actualiza en el Deserialize esto
     {
-        this.data = Deserialize(data);
         currentMessageType = MessageType.Console;
+        this.data = Deserialize(data);
     }
 
     public char[] GetData()
@@ -367,10 +365,6 @@ public class NetPing
 {
     MessageType messageType = MessageType.Ping;
 
-    public void SetMessageType(MessageType messageType)
-    {
-        this.messageType = messageType;
-    }
     public MessageType GetMessageType()
     {
         return messageType;
@@ -381,6 +375,7 @@ public class NetPing
         List<byte> outData = new List<byte>();
 
         outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+        outData.AddRange(BitConverter.GetBytes((int)MessagePriority.Default));
 
         return outData.ToArray();
     }

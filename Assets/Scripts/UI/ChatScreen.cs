@@ -22,7 +22,7 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
             str = name + str;
 
             consoleMessageOrder++;
-            NetMessage netMessage = new NetMessage(MessagePriority.Sorteable | MessagePriority.NonDisposable, str.ToCharArray());
+            NetMessage netMessage = new NetMessage(MessagePriority.NonDisposable | MessagePriority.NonDisposable, str.ToCharArray());
             netMessage.MessageOrder = consoleMessageOrder;
 
             if (NetworkManager.Instance.isServer)
@@ -34,8 +34,6 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
             {
                 NetworkManager.Instance.SendToServer(netMessage.Serialize());
             }
-
-            NetworkManager.Instance.clientConsoleMessage.Enqueue(netMessage.Serialize());
 
             inputMessage.ActivateInputField();
             inputMessage.Select();

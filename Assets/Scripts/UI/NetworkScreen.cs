@@ -50,6 +50,8 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
 
     public void SwitchToMenuScreen()
     {
+
+        GameManager.Instance.timer.text = "";
         ChatScreen.Instance.gameObject.SetActive(false);
         this.gameObject.SetActive(true);
     }
@@ -64,7 +66,7 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
 
     void TurnOffErrorPanel()
     {
-       panelError.SetActive(false);
+        panelError.SetActive(false);
     }
 
     public void ShowWinPanel(string winnerText)

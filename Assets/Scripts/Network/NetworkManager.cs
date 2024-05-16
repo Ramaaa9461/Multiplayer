@@ -50,29 +50,28 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     private UdpConnection connection;
 
+    public Action<byte[], IPEndPoint> OnRecievedMessage;
+
     public readonly Dictionary<int, Client> clients = new Dictionary<int, Client>(); //Esta lista la tiene el SERVER
     private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
-    private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
+    public readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
     public string userName = "Server";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
     public int actualClientId = -1; // Es el ID de ESTE cliente (no aplica al server)
 
     GameManager gm;
-    MessageChecker messageChecker;
     PingPong checkActivity;
+    SorteableMessages sorteableMessages;
+
 
     int maxPlayersPerServer = 4;
     public bool matchOnGoing = false;
 
-    public Queue< byte[]> clientConsoleMessage = new();
-    public Dictionary<int, Queue<byte[]>> serverConsoleMessage = new();
-    float resendPackageCounter = 0;
-
     private void Start()
     {
         gm = GameManager.Instance;
-        messageChecker = new MessageChecker();
+        sorteableMessages = new();
     }
 
     public void StartServer(int port)
@@ -153,7 +152,9 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
-        switch (messageChecker.CheckMessageType(data))
+        OnRecievedMessage?.Invoke(data, ip);
+
+        switch (MessageChecker.CheckMessageType(data))
         {
             case MessageType.Ping:
 
@@ -215,7 +216,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
             case MessageType.Position:
 
-                UpdatePlayerPosition(data);
+                NetVector3 netVector3 = new(data);
+
+                if (isServer)
+                {
+                    if (sorteableMessages.CheckMessageOrderRecievedFromClients(ipToId[ip], MessageChecker.CheckMessageType(data), netVector3.MessageOrder))
+                    {
+                        UpdatePlayerPosition(data);
+                    }
+                }
+                else
+                {
+                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(MessageType.Position, netVector3.MessageOrder))
+                    {
+                        UpdatePlayerPosition(data);
+                    }
+                }
 
                 break;
             case MessageType.BulletInstatiate:
@@ -288,9 +304,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
             case MessageType.Confirm:
 
-                clientConsoleMessage.Dequeue();
-                resendPackageCounter = 0;
-                Debug.Log("Se borro el primer elemeto");
                 break;
             default:
                 break;
@@ -330,28 +343,9 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 checkActivity.UpdateCheckActivity();
             }
 
-            ResendPackage();
         }
     }
 
-    void ResendPackage()
-    {
-        if (clientConsoleMessage.Count > 0)
-        {
-            resendPackageCounter += Time.deltaTime;
-
-
-            if (!isServer)
-            {
-                if (resendPackageCounter >= checkActivity.GetLatencyFormServer() * 5 )
-                {
-                    Debug.Log("Se envio el packete de nuevo");
-                    SendToServer(clientConsoleMessage.Peek());
-                    resendPackageCounter = 0;
-                }
-            }
-        }
-    }
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)
     {

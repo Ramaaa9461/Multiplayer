@@ -4,9 +4,18 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MessageChecker
+public static class MessageChecker
 {
-    public MessageType CheckMessageType(byte[] message)
+    public static MessagePriority CheckMessagePriority(byte[] message)
+    {
+        int messagePriority = 0;
+
+        messagePriority = BitConverter.ToInt32(message, 4);
+
+        return (MessagePriority)messagePriority;
+    }
+
+    public static MessageType CheckMessageType(byte[] message)
     {
         int messageType = 0;
 

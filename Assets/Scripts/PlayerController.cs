@@ -17,8 +17,8 @@ public class PlayerController : MonoBehaviour
     GameManager gm;
     NetworkManager nm;
 
-    static int positionMessageOrder = 0;
-    static int bulletsMessageOrder = 0;
+    static int positionMessageOrder = 1;
+    static int bulletsMessageOrder = 1;
 
     private void Awake()
     {
@@ -69,11 +69,11 @@ public class PlayerController : MonoBehaviour
                 GameObject bullet = Instantiate(bulletPrefab, transform.position + direction, Quaternion.identity);
                 bullet.GetComponent<BulletController>().SetDirection(direction, clientID);
 
-                bulletsMessageOrder++;
-                NetVector3 netBullet = new NetVector3(MessagePriority.Sorteable, (nm.actualClientId, direction));
+                NetVector3 netBullet = new NetVector3(MessagePriority.NonDisposable, (nm.actualClientId, direction));
                 netBullet.CurrentMessageType = MessageType.BulletInstatiate;
                 netBullet.MessageOrder = bulletsMessageOrder;
                 nm.SendToServer(netBullet.Serialize());
+                bulletsMessageOrder++;
 
                 canShoot = false;
                 Invoke(nameof(SetCanShoot), cooldownShoot);
@@ -83,10 +83,10 @@ public class PlayerController : MonoBehaviour
 
     void SendPosition()
     {
-        positionMessageOrder++;
-        NetVector3 netVector3 = new NetVector3(MessagePriority.NonDisposable, (nm.actualClientId, transform.position));
+        NetVector3 netVector3 = new NetVector3(MessagePriority.Sorteable, (nm.actualClientId, transform.position));
         netVector3.MessageOrder = positionMessageOrder;
         NetworkManager.Instance.SendToServer(netVector3.Serialize());
+        positionMessageOrder++;
     }
 
     void SetCanShoot()

@@ -6,6 +6,7 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
     public Text messages;
     public InputField inputMessage;
 
+    static int consoleMessageOrder = 0;
     protected override void Initialize()
     {
         inputMessage.onEndEdit.AddListener(OnEndEdit);
@@ -19,17 +20,18 @@ public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
         {
             string name = NetworkManager.Instance.userName + ": ";
             str = name + str;
+
+            consoleMessageOrder++;
+            NetMessage netMessage = new NetMessage(MessagePriority.NonDisposable | MessagePriority.NonDisposable, str.ToCharArray());
+            netMessage.MessageOrder = consoleMessageOrder;
+
             if (NetworkManager.Instance.isServer)
             {
-                NetMessage netMessage = new NetMessage(str.ToCharArray());
-
                 NetworkManager.Instance.Broadcast(netMessage.Serialize());
                 messages.text += str + System.Environment.NewLine;
             }
             else
             {
-                NetMessage netMessage = new NetMessage(str.ToCharArray());
-
                 NetworkManager.Instance.SendToServer(netMessage.Serialize());
             }
 

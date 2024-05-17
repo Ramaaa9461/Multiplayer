@@ -55,6 +55,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             }
             else
             {
+                Debug.Log(index);
                 pc.currentPlayer = true;
             }
 
@@ -67,8 +68,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     void RemovePlayer(int index)
     {
-        Destroy(playerList[index]);
-        playerList.Remove(index);
+        if (playerList.ContainsKey(index))
+        {
+            Destroy(playerList[index]);
+            playerList.Remove(index);
+        }
     }
 
     void InstantiatePlayerBullets(int id, Vector3 bulletDir)

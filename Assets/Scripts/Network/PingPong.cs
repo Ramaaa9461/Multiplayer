@@ -12,9 +12,12 @@ public class PingPong
     float sendMessageCounter = 0;
     float secondsPerCheck = 1.0f;
 
-    DateTime currentDateTime = DateTime.UtcNow;
 
-    public PingPong() //Tenemos qe calcular la latencia
+    private Dictionary<int, float> latencyFromClients = new Dictionary<int, float>(); //Lo usa el Server
+    float latencyFromServer = 0;
+    DateTime currentDateTime;
+
+    public PingPong() 
     {
     }
 
@@ -50,9 +53,6 @@ public class PingPong
 
             CheckActivityCounter();
             CheckTimeUntilDisconection();
-        
-
-
     }
 
     void CheckActivityCounter()
@@ -82,7 +82,7 @@ public class PingPong
                 {
                     NetworkManager.Instance.RemoveClient(clientID);
 
-                    NetIDMessage netDisconnection = new NetIDMessage(clientID);
+                    NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientID);
                     NetworkManager.Instance.Broadcast(netDisconnection.Serialize());
                 }
             }
@@ -91,7 +91,7 @@ public class PingPong
         {
             if (lastMessageReceivedFromServer > timeUntilDisconnection)
             {
-                NetIDMessage netDisconnection = new NetIDMessage(NetworkManager.Instance.actualClientId);
+                NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, NetworkManager.Instance.actualClientId);
                 NetworkManager.Instance.SendToServer(netDisconnection.Serialize());
 
                 NetworkManager.Instance.DisconectPlayer();
@@ -111,5 +111,35 @@ public class PingPong
         {
             NetworkManager.Instance.SendToServer(netPing.Serialize());
         }
+
+        currentDateTime = DateTime.UtcNow;
+    }
+
+    public void CalculateLatencyFromServer()
+    {
+        TimeSpan newDateTime = DateTime.UtcNow - currentDateTime;
+        latencyFromServer = (float)newDateTime.Milliseconds;
+      //Debug.Log("Latency from Server " + latencyFromServer / 1000);
+    }
+
+    public void CalculateLatencyFromClients(int clientID)
+    {
+        TimeSpan newDateTime = DateTime.UtcNow - currentDateTime;
+        latencyFromClients[clientID] = (float)newDateTime.TotalMilliseconds;
+      //Debug.Log("Latency from client " + clientID + " - " + latencyFromClients[clientID] /1000);
+    }
+
+    public float GetLatencyFormClient(int clientId)
+    {
+        if (latencyFromClients.ContainsKey(clientId))
+        {
+            return latencyFromClients[clientId];
+        }
+
+        return -1;
+    }
+    public float GetLatencyFormServer()
+    {
+        return latencyFromServer;
     }
 }

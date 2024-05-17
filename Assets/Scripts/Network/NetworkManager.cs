@@ -45,21 +45,27 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         get; private set;
     }
+
     public int TimeOut = 30;
 
     private UdpConnection connection;
 
+    public Action<byte[], IPEndPoint> OnRecievedMessage;
+
     public readonly Dictionary<int, Client> clients = new Dictionary<int, Client>(); //Esta lista la tiene el SERVER
     private readonly Dictionary<int, Player> players = new Dictionary<int, Player>(); //Esta lista la tienen los CLIENTES
-    private readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
+    public readonly Dictionary<IPEndPoint, int> ipToId = new Dictionary<IPEndPoint, int>();
 
     public string userName = "Server";
     public int serverClientId = 0; //Es el id que tendra el server para asignar a los clientes que entren
     public int actualClientId = -1; // Es el ID de ESTE cliente (no aplica al server)
 
     GameManager gm;
-    MessageChecker messageChecker;
-    PingPong checkActivity;
+    public PingPong checkActivity;
+
+    SorteableMessages sorteableMessages;
+    NondisponsablesMessages nondisponblesMessages;
+
 
     int maxPlayersPerServer = 4;
     public bool matchOnGoing = false;
@@ -67,7 +73,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     private void Start()
     {
         gm = GameManager.Instance;
-        messageChecker = new MessageChecker();
+        sorteableMessages = new();
+        nondisponblesMessages = new();
     }
 
     public void StartServer(int port)
@@ -90,7 +97,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         connection = new UdpConnection(ip, port, this);
         checkActivity = new PingPong();
 
-        ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake((UdpConnection.IPToLong(ip), port, name));
+        ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake(MessagePriority.NonDisposable, (UdpConnection.IPToLong(ip), port, name));
         SendToServer(handShakeMesage.Serialize());
     }
 
@@ -115,7 +122,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                     playersInServer.Add((clients[id].id, clients[id].clientName));
                 }
 
-                ServerToClientHandShake serverToClient = new ServerToClientHandShake(playersInServer);
+                ServerToClientHandShake serverToClient = new ServerToClientHandShake(MessagePriority.NonDisposable, playersInServer);
                 Broadcast(serverToClient.Serialize());
             }
         }
@@ -148,7 +155,9 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
-        switch (messageChecker.CheckMessageType(data))
+        OnRecievedMessage?.Invoke(data, ip);
+
+        switch (MessageChecker.CheckMessageType(data))
         {
             case MessageType.Ping:
 
@@ -157,6 +166,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                     if (ipToId.ContainsKey(ip))
                     {
                         checkActivity.ReciveClientToServerPingMessage(ipToId[ip]);
+                        checkActivity.CalculateLatencyFromClients(ipToId[ip]);
                     }
                     else
                     {
@@ -166,6 +176,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 else
                 {
                     checkActivity.ReciveServerToClientPingMessage();
+                    checkActivity.CalculateLatencyFromServer();
                 }
 
                 break;
@@ -208,7 +219,25 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
             case MessageType.Position:
 
-                UpdatePlayerPosition(data);
+                NetVector3 netVector3 = new(data);
+
+                if (isServer)
+                {
+                    if (ipToId.ContainsKey(ip))
+                    {
+                        if (sorteableMessages.CheckMessageOrderRecievedFromClients(ipToId[ip], MessageChecker.CheckMessageType(data), netVector3.MessageOrder))
+                        {
+                            UpdatePlayerPosition(data);
+                        }
+                    }
+                }
+                else
+                {
+                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(MessageType.Position, netVector3.MessageOrder))   //TODO: Este if rompe cuando son mas de 2 jugadores
+                    {
+                        UpdatePlayerPosition(data);
+                    }
+                }
 
                 break;
             case MessageType.BulletInstatiate:
@@ -220,7 +249,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 {
                     BroadcastPlayerPosition(netBullet.GetData().id, data);
                 }
-
 
                 break;
             case MessageType.Disconnection:
@@ -286,11 +314,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void SendToServer(byte[] data)
     {
+        nondisponblesMessages.AddSentMessagesFromClients(data);
         connection.Send(data);
     }
 
     public void Broadcast(byte[] data, IPEndPoint ip)
     {
+        if (ipToId.ContainsKey(ip))
+        {
+            nondisponblesMessages.AddSentMessagesFromServer(data, ipToId[ip]);
+        }
         connection.Send(data, ip);
     }
 
@@ -300,6 +333,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         {
             while (iterator.MoveNext())
             {
+                nondisponblesMessages.AddSentMessagesFromServer(data, iterator.Current.Value.id);
                 connection.Send(data, iterator.Current.Value.ipEndPoint);
             }
         }
@@ -316,8 +350,15 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             {
                 checkActivity.UpdateCheckActivity();
             }
+
+            if (nondisponblesMessages != null)
+            {
+                nondisponblesMessages.ResendPackages();
+            }
+
         }
     }
+
 
     void ReciveClientToServerHandShake(byte[] data, IPEndPoint ip)
     {
@@ -389,12 +430,13 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         if (!isServer)
         {
-            NetIDMessage netDisconnection = new NetIDMessage(actualClientId);
+            NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, actualClientId);
             SendToServer(netDisconnection.Serialize());
         }
         else
         {
             NetErrorMessage netErrorMessage = new NetErrorMessage("Lost Connection To Server");
+            Broadcast(netErrorMessage.Serialize());
             CloseServer();
         }
     }
@@ -406,7 +448,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             List<int> clientIdsToRemove = new List<int>(clients.Keys);
             foreach (int clientId in clientIdsToRemove)
             {
-                NetIDMessage netDisconnection = new NetIDMessage(clientId);
+                NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientId);
                 Broadcast(netDisconnection.Serialize());
                 RemoveClient(clientId);
             }

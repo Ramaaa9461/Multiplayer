@@ -153,7 +153,7 @@ public class ServerGameplay : MonoBehaviour
             gm.timer.text = counter.ToString("F2") + "s";
         }
 
-        if (clientGameplayTimer)
+        if (clientGameplayTimer && !NetworkScreen.Instance.gameObject.activeInHierarchy)
         {
             clientLobbyTimer = false;
 

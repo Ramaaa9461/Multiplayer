@@ -14,6 +14,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public Action<bool> OnInitLobbyTimer;
     public Action OnInitGameplayTimer;
 
+    public Action<int> OnChangeLobbyPlayers;
+
     public Action<int, Vector3> OnInstantiateBullet;
 
     public TextMeshProUGUI timer;
@@ -43,6 +45,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (!playerList.ContainsKey(index))
         {
             playerList.Add(index, Instantiate(playerPrefab, spawnPositions[UnityEngine.Random.Range(0, spawnPositions.Length)].position, Quaternion.identity));
+            OnChangeLobbyPlayers?.Invoke(index);
         }
 
         if (playerList[index].TryGetComponent(out PlayerController pc))
@@ -78,6 +81,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     void InstantiatePlayerBullets(int id, Vector3 bulletDir)
     {
         playerList[id].GetComponent<PlayerController>().ServerShoot(bulletDir);
+        playerList[id].GetComponent<AudioSource>().Play();
+        playerList[id].GetComponent<Animator>().SetTrigger("Shoot");
     }
 
     public void UpdatePlayerPosition((int index, Vector3 newPosition) playerData)

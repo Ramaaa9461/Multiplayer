@@ -185,7 +185,7 @@ public class ClientToServerNetHandShake : BaseMessage<(long, int, string)>
 public class NetVector3 : BaseMessage<(int, Vector3)>
 {
     private (int id, Vector3 position) data;
-    
+
     public NetVector3(MessagePriority messagePriority, (int, Vector3) data) : base(messagePriority)
     {
         currentMessageType = MessageType.Position;
@@ -402,7 +402,11 @@ public class NetIDMessage : BaseMessage<int>
     {
         DeserializeHeader(message);
 
-        return BitConverter.ToInt32(message, messageHeaderSize);
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            clientID = BitConverter.ToInt32(message, messageHeaderSize);
+        }
+        return clientID;
     }
 
     public int GetData()
@@ -466,7 +470,7 @@ public class NetErrorMessage : BaseMessage<string>
         outData.AddRange(MessageChecker.SerializeString(error.ToCharArray()));
 
         SerializeQueue(ref outData);
-    
+
         return outData.ToArray();
     }
 }

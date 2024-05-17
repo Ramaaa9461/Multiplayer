@@ -134,11 +134,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void RemoveClient(int idToRemove)
     {
+        gm.OnRemovePlayer?.Invoke(idToRemove);
 
         if (clients.ContainsKey(idToRemove))
         {
             Debug.Log("Removing client: " + idToRemove);
-        gm.OnRemovePlayer?.Invoke(idToRemove);
 
             checkActivity.RemoveClientForList(idToRemove);
 
@@ -223,14 +223,17 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 if (isServer)
                 {
-                    if (sorteableMessages.CheckMessageOrderRecievedFromClients(ipToId[ip], MessageChecker.CheckMessageType(data), netVector3.MessageOrder))
+                    if (ipToId.ContainsKey(ip))
                     {
-                        UpdatePlayerPosition(data);
+                        if (sorteableMessages.CheckMessageOrderRecievedFromClients(ipToId[ip], MessageChecker.CheckMessageType(data), netVector3.MessageOrder))
+                        {
+                            UpdatePlayerPosition(data);
+                        }
                     }
                 }
                 else
                 {
-                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(MessageType.Position, netVector3.MessageOrder))
+                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(MessageType.Position, netVector3.MessageOrder))   //TODO: Este if rompe cuando son mas de 2 jugadores
                     {
                         UpdatePlayerPosition(data);
                     }
@@ -433,7 +436,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         else
         {
             NetErrorMessage netErrorMessage = new NetErrorMessage("Lost Connection To Server");
-            SendToServer(netErrorMessage.Serialize());
+            Broadcast(netErrorMessage.Serialize());
             CloseServer();
         }
     }

@@ -5,8 +5,8 @@ enum States { Init, Lobby, Game, Finish };
 
 public class ServerGameplay : MonoBehaviour
 {
-    int minutesInLobby = 1; // 2 minutos
-    float minutesGameplay = 180; //3 minutos
+    int minutesInLobby = 5; // 2 minutos
+    float minutesGameplay = 30; //3 minutos
     float timeUntilCloseServer = 5;
 
     int minPlayerToInitCounter = 2;

@@ -195,6 +195,7 @@ public class ServerGameplay : MonoBehaviour
 
     void SetLobbyTimer(bool init)
     {
+        counter = 0;
         gm.timer.text = "";
         clientLobbyTimer = init;
     }

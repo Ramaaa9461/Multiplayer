@@ -55,12 +55,13 @@ public static class MessageChecker
 
     public static bool DeserializeCheckSum(byte[] message)
     {
-        int messageSum = BitConverter.ToInt32(message, message.Length - sizeof(int));
-        messageSum >>= 5;
+        uint messageSum = (uint)BitConverter.ToInt32(message, message.Length - sizeof(int));
+
+        DeserializeSum(ref messageSum);
 
         if (messageSum != message.Length)
         {
-            Debug.LogError("Message corrupted.");
+            Debug.LogError("Message Type " + CheckMessageType(message) + " (" + CheckMessagePriority(message) + ") got corrupted.");
             return false;
         }
 
@@ -69,11 +70,39 @@ public static class MessageChecker
 
     public static byte[] SerializeCheckSum(List<byte> data)
     {
-        int sum = data.Count + sizeof(int);
+        uint sum = (uint)(data.Count + sizeof(int));
 
-        sum <<= 5;
-        
+        SerializeSum(ref sum);
+
         return BitConverter.GetBytes(sum);
+    }
+
+    static void DeserializeSum(ref uint sum)
+    {
+        sum <<= 2;
+        sum >>= 3;
+        sum <<= 2;
+        sum >>= 1;
+        sum += 556;
+        sum -= 2560;
+        sum += 256;
+        sum -= 1234;
+        sum >>= 2;
+        sum <<= 1;
+    }
+
+    static void SerializeSum(ref uint sum)
+    {
+        sum >>= 1;
+        sum <<= 2;
+        sum += 1234;
+        sum -= 256;
+        sum += 2560;
+        sum -= 556;
+        sum <<= 1;
+        sum >>= 2;
+        sum <<= 3;
+        sum >>= 2;
     }
 }
 

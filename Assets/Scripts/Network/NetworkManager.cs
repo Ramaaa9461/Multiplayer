@@ -155,6 +155,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
+     //   if (!MessageChecker.DeserializeCheckSum(data))
+     //   {
+     //       return;
+     //   }
+
         OnRecievedMessage?.Invoke(data, ip);
 
         switch (MessageChecker.CheckMessageType(data))

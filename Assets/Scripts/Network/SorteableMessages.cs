@@ -54,7 +54,6 @@ public class SorteableMessages
                 if (messageType == MessageType.Position)
                 {
                     int clientId = new NetVector3(data).GetData().id;
-                    Debug.Log(clientId + " - " + new NetVector3(data).MessageOrder);
 
                     if (OrderLastMessageReciveFromServer.ContainsKey(clientId))
                     {
@@ -91,7 +90,7 @@ public class SorteableMessages
             OrderLastMessageReciveFromServer[clientID].Add(messageType, 0);
         }
 
-        Debug.Log(OrderLastMessageReciveFromServer[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder));
+      //  Debug.Log(OrderLastMessageReciveFromServer[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder));
         return OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder;
     }
 

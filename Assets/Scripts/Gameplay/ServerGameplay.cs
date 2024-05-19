@@ -1,3 +1,4 @@
+using System.Net;
 using TMPro;
 using UnityEngine;
 
@@ -5,7 +6,7 @@ enum States { Init, Lobby, Game, Finish };
 
 public class ServerGameplay : MonoBehaviour
 {
-    int minutesInLobby = 5; // 2 minutos
+    int minutesInLobby = 15; // 2 minutos
     float minutesGameplay = 30; //3 minutos
     float timeUntilCloseServer = 5;
 
@@ -31,8 +32,33 @@ public class ServerGameplay : MonoBehaviour
         gm = GameManager.Instance;
         nm = NetworkManager.Instance;
 
+        nm.OnRecievedMessage += OnRecievedData;
+
         gm.OnInitLobbyTimer += SetLobbyTimer;
         gm.OnInitGameplayTimer += SetGameplayTimer;
+
+        gm.OnChangeLobbyPlayers += CheckForAddNewPlayer;
+    }
+
+    void CheckForAddNewPlayer(int clientID)
+    {
+        if (nm.isServer && currentState == States.Lobby && counterInit)
+        {
+            NetUpdateNewPlayersTimer timer = new NetUpdateNewPlayersTimer(MessagePriority.Default, counter);
+            nm.Broadcast(timer.Serialize(), nm.clients[clientID].ipEndPoint);
+        }
+    }
+
+    void OnRecievedData(byte[] data, IPEndPoint ip)
+    {
+        if (MessageChecker.CheckMessageType(data) == MessageType.UpdateLobbyTimerForNewPlayers)
+        {
+            Debug.Log("Llego mensaje de update timer");
+            NetUpdateNewPlayersTimer timer = new NetUpdateNewPlayersTimer(data);
+
+            counter = timer.GetData();
+            clientLobbyTimer = true;
+        }
     }
 
     private void Update()
@@ -60,7 +86,6 @@ public class ServerGameplay : MonoBehaviour
                     break;
                 case States.Lobby:
 
-
                     if (nm.clients.Count >= minPlayerToInitCounter)
                     {
                         counterInit = true;
@@ -68,7 +93,7 @@ public class ServerGameplay : MonoBehaviour
                         if (initLobby)
                         {
                             NetUpdateTimer netUpdateLobbyTimer = new NetUpdateTimer(MessagePriority.NonDisposable, true);
-                            netUpdateLobbyTimer.CurrentMessageType  = MessageType.UpdateLobbyTimer;
+                            netUpdateLobbyTimer.CurrentMessageType = MessageType.UpdateLobbyTimer;
                             nm.Broadcast(netUpdateLobbyTimer.Serialize());
                             initLobby = false;
                         }
@@ -153,7 +178,7 @@ public class ServerGameplay : MonoBehaviour
             gm.timer.text = counter.ToString("F2") + "s";
         }
 
-        if (clientGameplayTimer)
+        if (clientGameplayTimer && !NetworkScreen.Instance.gameObject.activeInHierarchy)
         {
             clientLobbyTimer = false;
 
@@ -170,6 +195,7 @@ public class ServerGameplay : MonoBehaviour
 
     void SetLobbyTimer(bool init)
     {
+        counter = 0;
         gm.timer.text = "";
         clientLobbyTimer = init;
     }

@@ -26,7 +26,8 @@ public enum MessageType
     Disconnection = 3,
     UpdateLobbyTimer = 4,
     UpdateGameplayTimer = 5,
-    Winner = 6
+    UpdateLobbyTimerForNewPlayers = 6,
+    Winner = 7
 };
 
 public interface IMessage<T>
@@ -499,7 +500,7 @@ public class NetUpdateTimer : BaseMessage<bool>
     public override bool Deserialize(byte[] message)
     {
         DeserializeHeader(message);
-
+ 
         if (MessageChecker.DeserializeCheckSum(message))
         {
             return BitConverter.ToBoolean(message, messageHeaderSize);
@@ -514,6 +515,7 @@ public class NetUpdateTimer : BaseMessage<bool>
 
         SerializeHeader(ref outData);
 
+        outData.AddRange(BitConverter.GetBytes(initTimer));
         outData.AddRange(BitConverter.GetBytes(initTimer));
 
         SerializeQueue(ref outData);
@@ -562,6 +564,53 @@ public class NetConfirmMessage : BaseMessage<MessageType>
         SerializeHeader(ref outData);
 
         outData.AddRange(BitConverter.GetBytes((int)messageTypeToConfirm));
+
+        SerializeQueue(ref outData);
+
+        return outData.ToArray();
+    }
+}
+
+public class NetUpdateNewPlayersTimer : BaseMessage<float>
+{
+    float timer = -1;
+
+    public NetUpdateNewPlayersTimer(MessagePriority messagePriority, float timer) : base(messagePriority)
+    {
+        currentMessageType = MessageType.UpdateLobbyTimerForNewPlayers;
+        this.timer = timer;
+    }
+
+    public NetUpdateNewPlayersTimer(byte[] data) : base(MessagePriority.Default)
+    {
+        currentMessageType = MessageType.UpdateLobbyTimerForNewPlayers;
+        timer = Deserialize(data);
+    }
+
+    public float GetData()
+    {
+        return timer;
+    }
+
+    public override float Deserialize(byte[] message)
+    {
+        DeserializeHeader(message);
+
+        if (MessageChecker.DeserializeCheckSum(message))
+        {
+            timer = BitConverter.ToSingle(message, messageHeaderSize);
+        }
+
+        return timer;
+    }
+
+    public override byte[] Serialize()
+    {
+        List<byte> outData = new List<byte>();
+
+        SerializeHeader(ref outData);
+
+        outData.AddRange(BitConverter.GetBytes(timer));
 
         SerializeQueue(ref outData);
 

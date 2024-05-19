@@ -5,8 +5,8 @@ public class PlayerController : MonoBehaviour
     public int health = 3;
     
     [SerializeField] float speed = 5f;
-    [SerializeField] float cooldownShoot = 0.2f;
     [SerializeField] GameObject bulletPrefab;
+    float cooldownShoot = 0.5f;
 
     [SerializeField] bool canShoot = true;
     CharacterController cc;
@@ -17,12 +17,17 @@ public class PlayerController : MonoBehaviour
     GameManager gm;
     NetworkManager nm;
 
+    AudioSource audioSource;
+    Animator animator;
+
     static int positionMessageOrder = 1;
     static int bulletsMessageOrder = 1;
 
     private void Awake()
     {
         cc = transform.GetComponent<CharacterController>();
+        audioSource = gameObject.GetComponent<AudioSource>();
+        animator = gameObject.GetComponent<Animator>();
     }
 
     private void Start()
@@ -74,6 +79,9 @@ public class PlayerController : MonoBehaviour
                 netBullet.MessageOrder = bulletsMessageOrder;
                 nm.SendToServer(netBullet.Serialize());
                 bulletsMessageOrder++;
+
+                animator.SetTrigger("Shoot");
+                audioSource.Play();
 
                 canShoot = false;
                 Invoke(nameof(SetCanShoot), cooldownShoot);

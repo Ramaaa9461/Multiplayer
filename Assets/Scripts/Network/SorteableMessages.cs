@@ -8,7 +8,7 @@ public class SorteableMessages
     GameManager gm;
     NetworkManager nm;
 
-    Dictionary<MessageType, int> OrderLastMessageReciveFromServer;
+    Dictionary<int, Dictionary<MessageType, int>> OrderLastMessageReciveFromServer;
     Dictionary<int, Dictionary<MessageType, int>> OrderLastMessageReciveFromClients;
 
     public SorteableMessages()
@@ -22,7 +22,7 @@ public class SorteableMessages
         gm.OnRemovePlayer += RemoveClient;
 
         OrderLastMessageReciveFromClients = new Dictionary<int, Dictionary<MessageType, int>>();
-        OrderLastMessageReciveFromServer = new Dictionary<MessageType, int>();
+        OrderLastMessageReciveFromServer = new Dictionary<int, Dictionary<MessageType, int>>();
     }
 
 
@@ -37,7 +37,7 @@ public class SorteableMessages
             if (nm.isServer)
             {
                 Debug.Log(nm.ipToId[ip]);
-                if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))   
+                if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))
                 {
                     if (!OrderLastMessageReciveFromClients[nm.ipToId[ip]].ContainsKey(messageType))
                     {
@@ -51,14 +51,22 @@ public class SorteableMessages
             }
             else
             {
-                if (!OrderLastMessageReciveFromServer.ContainsKey(messageType))
+                if (messageType == MessageType.Position)
                 {
-                    OrderLastMessageReciveFromServer.Add(messageType, 0);
+                    int clientId = new NetVector3(data).GetData().id;
 
-                }
-                else
-                {
-                    OrderLastMessageReciveFromServer[messageType]++;
+                    if (OrderLastMessageReciveFromServer.ContainsKey(clientId))
+                    {
+                        if (!OrderLastMessageReciveFromServer[clientId].ContainsKey(messageType))
+                        {
+                            OrderLastMessageReciveFromServer[clientId].Add(messageType, 0);
+
+                        }
+                        else
+                        {
+                            OrderLastMessageReciveFromServer[clientId][messageType]++;
+                        }
+                    }
                 }
             }
         }
@@ -71,19 +79,19 @@ public class SorteableMessages
             OrderLastMessageReciveFromClients[clientID].Add(messageType, 0);
         }
 
-       // Debug.Log(OrderLastMessageReciveFromClients[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder));
+        // Debug.Log(OrderLastMessageReciveFromClients[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder));
         return OrderLastMessageReciveFromClients[clientID][messageType] < messageOrder;
     }
 
-    public bool CheckMessageOrderRecievedFromServer(MessageType messageType, int messageOrder)
+    public bool CheckMessageOrderRecievedFromServer(int clientID, MessageType messageType, int messageOrder)
     {
-        if (!OrderLastMessageReciveFromServer.ContainsKey(messageType))
+        if (!OrderLastMessageReciveFromServer[clientID].ContainsKey(messageType))
         {
-            OrderLastMessageReciveFromServer.Add(messageType, 0);
+            OrderLastMessageReciveFromServer[clientID].Add(messageType, 0);
         }
 
-       // Debug.Log(OrderLastMessageReciveFromServer[messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[messageType] < messageOrder));
-        return OrderLastMessageReciveFromServer[messageType] < messageOrder;
+      //  Debug.Log(OrderLastMessageReciveFromServer[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder));
+        return OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder;
     }
 
     void AddNewClient(int clientID)
@@ -92,6 +100,13 @@ public class SorteableMessages
         {
             OrderLastMessageReciveFromClients.Add(clientID, new Dictionary<MessageType, int>());
         }
+        else
+        {
+            if (!OrderLastMessageReciveFromServer.ContainsKey(clientID))
+            {
+                OrderLastMessageReciveFromServer.Add(clientID, new Dictionary<MessageType, int>());
+            }
+        }
     }
 
     void RemoveClient(int clientID)
@@ -99,6 +114,10 @@ public class SorteableMessages
         if (nm.isServer)
         {
             OrderLastMessageReciveFromClients.Remove(clientID);
+        }
+        else
+        {
+            OrderLastMessageReciveFromServer.Remove(clientID);
         }
     }
 

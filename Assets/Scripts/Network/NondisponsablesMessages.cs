@@ -64,17 +64,20 @@ public class NondisponsablesMessages
 
             if (nm.isServer)
             {
-                if (LastMessageBroadcastToClients.ContainsKey(nm.ipToId[ip]))
+                if (nm.ipToId.ContainsKey(ip))
                 {
-                    //Debug.Log("Se elimino el primer paquete de " + netConfirm.GetData() + " con el cliente " + nm.ipToId[ip]);
-             
-                    if (MessagesHistory.ContainsKey(LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Peek()))
+                    if (LastMessageBroadcastToClients.ContainsKey(nm.ipToId[ip]))
                     {
-                        LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Dequeue();
-                    }
-                    else
-                    {
-                        MessagesHistory.Add(LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Dequeue(), secondsToDeleteMessageHistory);
+                        //Debug.Log("Se elimino el primer paquete de " + netConfirm.GetData() + " con el cliente " + nm.ipToId[ip]);
+
+                        if (MessagesHistory.ContainsKey(LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Peek()))
+                        {
+                            LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Dequeue();
+                        }
+                        else
+                        {
+                            MessagesHistory.Add(LastMessageBroadcastToClients[nm.ipToId[ip]][netConfirm.GetData()].Dequeue(), secondsToDeleteMessageHistory);
+                        }
                     }
                 }
             }
@@ -96,7 +99,7 @@ public class NondisponsablesMessages
     }
 
 
-    public void AddSentMessagesFromServer(byte[] data, int clientId)
+    public void AddSentMessagesFromServer(byte[] data, int clientId) //Cada vez que haces un broadcast
     {
         if (nm.isServer)
         {
@@ -108,6 +111,7 @@ public class NondisponsablesMessages
                 {
                     LastMessageBroadcastToClients.Add(clientId, new Dictionary<MessageType, Queue<byte[]>>());
                 }
+
                 MessageType messageType = MessageChecker.CheckMessageType(data);
 
                 if (!LastMessageBroadcastToClients[clientId].ContainsKey(messageType))
@@ -120,7 +124,7 @@ public class NondisponsablesMessages
         }
     }
 
-    public void AddSentMessagesFromClients(byte[] data)
+    public void AddSentMessagesFromClients(byte[] data)  
     {
         if (!nm.isServer)
         {

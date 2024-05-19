@@ -155,6 +155,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
+     //   if (!MessageChecker.DeserializeCheckSum(data))
+     //   {
+     //       return;
+     //   }
+
         OnRecievedMessage?.Invoke(data, ip);
 
         switch (MessageChecker.CheckMessageType(data))
@@ -233,7 +238,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 }
                 else
                 {
-                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(MessageType.Position, netVector3.MessageOrder))   //TODO: Este if rompe cuando son mas de 2 jugadores
+                    if (sorteableMessages.CheckMessageOrderRecievedFromServer(netVector3.GetData().id, MessageType.Position, netVector3.MessageOrder))   //TODO: Este if rompe cuando son mas de 2 jugadores
                     {
                         UpdatePlayerPosition(data);
                     }

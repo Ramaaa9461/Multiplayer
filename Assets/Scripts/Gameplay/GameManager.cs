@@ -14,6 +14,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public Action<bool> OnInitLobbyTimer;
     public Action OnInitGameplayTimer;
 
+    public Action<int> OnChangeLobbyPlayers;
+
     public Action<int, Vector3> OnInstantiateBullet;
 
     public TextMeshProUGUI timer;
@@ -22,6 +24,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     [SerializeField] GameObject playerPrefab;
     public Dictionary<int, GameObject> playerList = new Dictionary<int, GameObject>();
+
+    int spawnCounter = 0;
 
     NetworkManager nm;
     public bool isGameplay;
@@ -41,8 +45,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     void SpawnPlayerPefab(int index)
     {
         if (!playerList.ContainsKey(index))
-        {
-            playerList.Add(index, Instantiate(playerPrefab, spawnPositions[UnityEngine.Random.Range(0, spawnPositions.Length)].position, Quaternion.identity));
+        { 
+            playerList.Add(index, Instantiate(playerPrefab, spawnPositions[spawnCounter].position, Quaternion.identity));
+            OnChangeLobbyPlayers?.Invoke(index);
+            spawnCounter++;
         }
 
         if (playerList[index].TryGetComponent(out PlayerController pc))
@@ -55,7 +61,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             }
             else
             {
-                Debug.Log(index);
                 pc.currentPlayer = true;
             }
 
@@ -72,12 +77,30 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             Destroy(playerList[index]);
             playerList.Remove(index);
+
+            if (index == nm.actualClientId)
+            {
+                spawnCounter = 0;
+                RemoveAllPlayers();
+            }
         }
+    }
+
+    void RemoveAllPlayers()
+    {
+        foreach (int id in playerList.Keys)
+        {
+            Destroy(playerList[id]);
+        }
+
+        playerList.Clear();
     }
 
     void InstantiatePlayerBullets(int id, Vector3 bulletDir)
     {
         playerList[id].GetComponent<PlayerController>().ServerShoot(bulletDir);
+        playerList[id].GetComponent<AudioSource>().Play();
+        playerList[id].GetComponent<Animator>().SetTrigger("Shoot");
     }
 
     public void UpdatePlayerPosition((int index, Vector3 newPosition) playerData)

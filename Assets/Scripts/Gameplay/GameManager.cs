@@ -45,7 +45,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     void SpawnPlayerPefab(int index)
     {
         if (!playerList.ContainsKey(index))
-        { 
+        {
             playerList.Add(index, Instantiate(playerPrefab, spawnPositions[spawnCounter].position, Quaternion.identity));
             OnChangeLobbyPlayers?.Invoke(index);
             spawnCounter++;
@@ -105,7 +105,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void UpdatePlayerPosition((int index, Vector3 newPosition) playerData)
     {
-        playerList[playerData.index].transform.position = playerData.newPosition;
+        if (playerList.ContainsKey(playerData.index))
+        {
+            playerList[playerData.index].transform.position = playerData.newPosition;
+        }
     }
 
     void OnHitRecieved(int playerReciveDamage)

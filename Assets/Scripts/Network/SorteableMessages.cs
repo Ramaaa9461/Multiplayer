@@ -36,16 +36,18 @@ public class SorteableMessages
 
             if (nm.isServer)
             {
-                Debug.Log(nm.ipToId[ip]);
-                if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))
+                if (nm.ipToId.ContainsKey(ip))
                 {
-                    if (!OrderLastMessageReciveFromClients[nm.ipToId[ip]].ContainsKey(messageType))
+                    if (OrderLastMessageReciveFromClients.ContainsKey(nm.ipToId[ip]))
                     {
-                        OrderLastMessageReciveFromClients[nm.ipToId[ip]].Add(messageType, 0);
-                    }
-                    else
-                    {
-                        OrderLastMessageReciveFromClients[nm.ipToId[ip]][messageType]++;
+                        if (!OrderLastMessageReciveFromClients[nm.ipToId[ip]].ContainsKey(messageType))
+                        {
+                            OrderLastMessageReciveFromClients[nm.ipToId[ip]].Add(messageType, 0);
+                        }
+                        else
+                        {
+                            OrderLastMessageReciveFromClients[nm.ipToId[ip]][messageType]++;
+                        }
                     }
                 }
             }
@@ -90,7 +92,7 @@ public class SorteableMessages
             OrderLastMessageReciveFromServer[clientID].Add(messageType, 0);
         }
 
-      //  Debug.Log(OrderLastMessageReciveFromServer[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder));
+        //  Debug.Log(OrderLastMessageReciveFromServer[clientID][messageType] + " - " + messageOrder + " - " + (OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder));
         return OrderLastMessageReciveFromServer[clientID][messageType] < messageOrder;
     }
 

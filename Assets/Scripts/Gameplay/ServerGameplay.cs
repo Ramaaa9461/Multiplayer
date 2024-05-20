@@ -143,10 +143,11 @@ public class ServerGameplay : MonoBehaviour
                     counter += Time.deltaTime;
                     gm.timer.text = counter.ToString("F2") + "s";
 
-                    if (counter >= minutesGameplay)
+                    if (counter >= minutesGameplay || gm.playerList.Count <= 1)
                     {
                         SendMatchWinner();
 
+                        counter = 0;
                         gm.timer.text = "";
                         currentState = States.Finish;
                     }

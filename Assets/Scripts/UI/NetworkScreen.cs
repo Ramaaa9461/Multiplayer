@@ -19,6 +19,8 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
     [SerializeField] GameObject winPanel;
     [SerializeField] TextMeshProUGUI winText;
 
+    public bool isInMenu = true;
+
     protected override void Initialize()
     {
         connectBtn.onClick.AddListener(OnConnectBtnClick);
@@ -31,8 +33,6 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
         int port = System.Convert.ToInt32(portInputField.text);
 
         NetworkManager.Instance.StartClient(ipAddress, port, nameInputField.text);
-
-        SwitchToChatScreen();
     }
 
     void OnStartServerBtnClick()
@@ -42,14 +42,16 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
         SwitchToChatScreen();
     }
 
-    void SwitchToChatScreen()
+   public void SwitchToChatScreen()
     {
+        isInMenu = false;
         ChatScreen.Instance.gameObject.SetActive(true);
         this.gameObject.SetActive(false);
     }
 
     public void SwitchToMenuScreen()
     {
+        isInMenu = true;
         GameManager.Instance.timer.text = "";
         ChatScreen.Instance.gameObject.SetActive(false);
         this.gameObject.SetActive(true);

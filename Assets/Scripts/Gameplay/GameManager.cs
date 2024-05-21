@@ -86,7 +86,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
     }
 
-    void RemoveAllPlayers()
+    public void RemoveAllPlayers()
     {
         foreach (int id in playerList.Keys)
         {
@@ -136,5 +136,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public void EndMatch()
     {
         timer.text = "";
+        RemoveAllPlayers();
     }
 }

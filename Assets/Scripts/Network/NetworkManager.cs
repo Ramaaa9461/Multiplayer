@@ -95,7 +95,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         this.userName = name;
 
         connection = new UdpConnection(ip, port, this);
-        checkActivity = new PingPong();
+    
 
         ClientToServerNetHandShake handShakeMesage = new ClientToServerNetHandShake(MessagePriority.NonDisposable, (UdpConnection.IPToLong(ip), port, name));
         SendToServer(handShakeMesage.Serialize());
@@ -149,6 +149,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
         if (!isServer && actualClientId == idToRemove)
         {
+            gm.RemoveAllPlayers();
+            connection.Close();
             NetworkScreen.Instance.SwitchToMenuScreen();
         }
     }
@@ -192,10 +194,20 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 List<(int clientId, string userName)> playerList = netGetClientID.GetData();
 
+                if (checkActivity == null)
+                {
+                    checkActivity = new PingPong();
+                }
+
                 for (int i = 0; i < playerList.Count; i++) //Verifico primero que cliente soy
                 {
                     if (playerList[i].userName == userName)
                     {
+                        if (NetworkScreen.Instance.isInMenu)
+                        {
+                            NetworkScreen.Instance.SwitchToChatScreen();
+                        }
+
                         actualClientId = playerList[i].clientId;
                     }
                 }
@@ -261,6 +273,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 NetIDMessage netDisconnection = new NetIDMessage(data);
 
                 int playerID = netDisconnection.GetData();
+                Debug.Log("ServerDisconect: " + playerID);
+
                 if (isServer)
                 {
                     Broadcast(data);
@@ -296,6 +310,9 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
                 NetworkScreen.Instance.SwitchToMenuScreen();
                 NetworkScreen.Instance.ShowErrorPanel(netErrorMessage.GetData());
+
+                gm.RemoveAllPlayers();
+                checkActivity = null;
                 connection.Close();
 
                 break;
@@ -308,6 +325,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 NetworkScreen.Instance.SwitchToMenuScreen();
                 NetworkScreen.Instance.ShowWinPanel(winText);
 
+                checkActivity = null;
                 gm.EndMatch();
 
                 break;
@@ -361,6 +379,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
                 nondisponblesMessages.ResendPackages();
             }
 
+        }
+        else
+        {
+            gm.RemoveAllPlayers();
         }
     }
 
@@ -435,6 +457,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         if (!isServer)
         {
+            gm.RemoveAllPlayers();
             NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, actualClientId);
             SendToServer(netDisconnection.Serialize());
         }
@@ -453,10 +476,12 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
             List<int> clientIdsToRemove = new List<int>(clients.Keys);
             foreach (int clientId in clientIdsToRemove)
             {
+                Debug.Log("ServerDisconect: " + clientId);
                 NetIDMessage netDisconnection = new NetIDMessage(MessagePriority.Default, clientId);
                 Broadcast(netDisconnection.Serialize());
                 RemoveClient(clientId);
             }
+            connection.Close();
         }
     }
 
@@ -464,6 +489,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
     {
         if (!isServer)
         {
+            gm.RemoveAllPlayers();
             connection.Close();
             NetworkScreen.Instance.SwitchToMenuScreen();
         }
